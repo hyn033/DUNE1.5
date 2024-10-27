@@ -5,6 +5,8 @@
 #include "io.h"
 #include "display.h"
 
+//1) 준비 - 화면배치 및 건물 위치를 설정
+
 void map_making(void);
 void message_making(void);
 void situation_making(void);
