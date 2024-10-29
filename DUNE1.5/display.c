@@ -12,33 +12,31 @@
 const POSITION resource_pos = { 0, 0 };
 const POSITION map_pos = { 1, 0 };  //map이 시작하는 위치(최상단)
 const POSITION message_pos = { MAP_HEIGHT + 1 , 0 }; //message가 시작하는 위치(map아래)
-const POSITION situation_pos = { 1,MAP_WIDTH + 1 };  //situation이 시작하는 위치(map옆)
-const POSITION order_pos = { MAP_HEIGHT + 1 ,	MAP_WIDTH + 1 }; //order가 시작하는 위치(map대각선)
+const POSITION situation_pos = { 1,MAP_WIDTH+1};  //situation이 시작하는 위치(map옆)
+const POSITION order_pos = { MAP_HEIGHT + 1 ,	MAP_WIDTH + 1}; //order가 시작하는 위치(map대각선)
 
 char backbuf[MAP_HEIGHT][MAP_WIDTH] = { 0 };
 char frontbuf[MAP_HEIGHT][MAP_WIDTH] = { 0 };
 
 void project(char src[N_LAYER][MAP_HEIGHT][MAP_WIDTH], char dest[MAP_HEIGHT][MAP_WIDTH]);
 void display_resource(RESOURCE resource);
-void display_map(char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH]);
+void display_map(char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH],int map_color[MAP_HEIGHT][MAP_WIDTH]);
 void display_cursor(CURSOR cursor);
 void display_message(char message[BOX_HEIGHT][MAP_WIDTH]);
 void display_situation(char situation[MAP_HEIGHT][BOX_WIDTH]);
 void display_order(char order[BOX_HEIGHT][BOX_WIDTH]);
-
+extern int map_color[MAP_HEIGHT][MAP_WIDTH];
 
 void display(
 	RESOURCE resource,
 	char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH],
+	int map_color[MAP_HEIGHT][MAP_WIDTH],
 	CURSOR cursor
 )
 {
 	display_resource(resource);
-	display_map(map);
+	display_map(map,map_color);
 	display_cursor(cursor);
-	// display_object_info()
-	// display_commands()
-	// ...
 }
 
 void display_resource(RESOURCE resource) {
@@ -63,14 +61,14 @@ void project(char src[N_LAYER][MAP_HEIGHT][MAP_WIDTH], char dest[MAP_HEIGHT][MAP
 	}
 }
 
-void display_map(char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH]) {
+void display_map(char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH],int map_color[MAP_HEIGHT][MAP_WIDTH]) {
 	project(map, backbuf);
 
 	for (int i = 0; i < MAP_HEIGHT; i++) {
 		for (int j = 0; j < MAP_WIDTH; j++) {
 			if (frontbuf[i][j] != backbuf[i][j]) {
 				POSITION pos = { i, j };
-				printc(padd(map_pos, pos), backbuf[i][j], COLOR_DEFAULT);
+				printc(padd(map_pos, pos), backbuf[i][j], map_color[i][j]);
 			}
 			frontbuf[i][j] = backbuf[i][j];
 		}
@@ -83,7 +81,7 @@ void display_cursor(CURSOR cursor) {
 	POSITION curr = cursor.current;
 
 	char ch = frontbuf[prev.row][prev.column];
-	printc(padd(map_pos, prev), ch, COLOR_DEFAULT);  //컬러 디폴트로 커서를 지움
+	printc(padd(map_pos, prev), ch, map_color[prev.row][prev.column]);  //컬러 디폴트로 커서를 지움
 
 	ch = frontbuf[curr.row][curr.column];
 	printc(padd(map_pos, curr), ch, COLOR_CURSOR);  //현재 커서 위치를 표시

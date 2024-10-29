@@ -5,9 +5,10 @@
 #include "io.h"
 #include "display.h"
 
-// 2) - 커서 더블클릭 코드 구현 완료
+// 건물&유닛, 커서 색 추가
 
 void map_making(void);
+void map_coloring(void);
 void message_making(void);
 void situation_making(void);
 void order_making(void);
@@ -21,9 +22,9 @@ POSITION sample_obj_next_position(void);
 /* ================= control =================== */
 int sys_clock = 0;		// system-wide clock(ms)
 int click_start_timer = 0; //타이머 시작
-int double_click = 80;
-CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
+int double_click = 90;
 bool timer_on = 0;
+CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
 KEY last_key=k_none;
 CURSOR cursor = { { 1, 1 }, {1, 1} };
 
@@ -33,6 +34,7 @@ char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH] = { 0 };   //map 정보
 char message[BOX_HEIGHT][MAP_WIDTH] = { 0 };		//메세지 창 
 char situation[MAP_HEIGHT][BOX_WIDTH] = { 0 };		//상태창 
 char order[BOX_HEIGHT][BOX_WIDTH] = { 0 };			//명령창
+int map_color[MAP_HEIGHT][MAP_WIDTH] = { 0 };		//map 색 정보
 
 RESOURCE resource = {
 	.spice = 0,
@@ -52,13 +54,13 @@ OBJECT_SAMPLE obj = {
 /* ================= main() =================== */
 int main(void) {
 	srand((unsigned int)time(NULL));
-
 	map_making();
+	map_coloring();
 	message_making();
 	situation_making();
 	order_making();
 	//intro();
-	display(resource, map, cursor);
+	display(resource, map, map_color, cursor);
 	display_message(message);
 	display_situation(situation);
 	display_order(order);
@@ -76,7 +78,7 @@ int main(void) {
 				last_key = key;
 			}
 			else if (last_key == key) { //타이머가 켜져있고 키가 같을 경우
-				for (int i = 0; i < 4; i++) {
+				for (int i = 0; i < 6; i++) {
 					cursor_move(ktod(key));
 					if (i == 0)
 						dash_cursor.previous = cursor.previous;
@@ -98,7 +100,7 @@ int main(void) {
 		// 샘플 오브젝트 동작
 		sample_obj_move();
 		// 화면 출력
-		display(resource, map, cursor);
+		display(resource, map, map_color, cursor);
 		Sleep(TICK);
 		if (timer_on) //타이머가 켜져있을때만 카운트
 			click_start_timer += 10;
@@ -138,7 +140,7 @@ void map_making(void) {
 		}
 	}
 
-	// layer 1(map[1])은 비워 두기(-1로 채움)
+	// layer 1(map[1])은 비워 두기(-1로 채움) // 유닛 추가
 	for (int i = 0; i < MAP_HEIGHT; i++) {
 		for (int j = 0; j < MAP_WIDTH; j++) {
 			map[1][i][j] = -1;
@@ -175,12 +177,37 @@ void map_making(void) {
 	map[0][7][44] = 'R';
 	map[0][10][12] = 'R';
 	//스파이스 매장지
-	map[0][12][1] = '8';
-	map[0][5][58] = '8';
-
-
+	map[0][12][1] = 'S';
+	map[0][5][58] = 'S';
+	//샌드웜 			
+	map[1][3][10] = 'W';
+	map[1][13][40] = 'W';
+	//하베스터
+	map[1][14][1] = 'H';
+	map[1][3][58] = 'H';
 	// object sample
 	map[1][obj.pos.row][obj.pos.column] = 'o';
+}
+
+void map_coloring(void) {
+	for (int i = 0; i < MAP_HEIGHT; i++) {
+		for (int j = 0; j < MAP_WIDTH; j++) {
+			if (map[0][i][j] == 'x') map_color[i][j] = COLOR_DEFAULT;
+			else if (map[0][i][j] == 'B') {
+				if (i == 1 || i == 2) map_color[i][j] = COLOR_BASE_RED;
+				else map_color[i][j] = COLOR_BASE_BLUE;
+			}
+			else if (map[1][i][j] == 'H') {
+				if (i == 3) map_color[i][j] = COLOR_BASE_RED;
+				else map_color[i][j] = COLOR_BASE_BLUE;
+			}
+			else if (map[0][i][j] == 'R') map_color[i][j] = COLOR_ROCK;
+			else if (map[0][i][j] == 'S') map_color[i][j] = COLOR_SPICE;
+			else if (map[0][i][j] == 'P') map_color[i][j] = COLOR_PLATE;
+			else if (map[1][i][j] == 'W') map_color[i][j] = COLOR_SANDWARM;
+			else map_color[i][j] =COLOR_SCREEN;
+		}
+	}
 }
 
 void message_making(void) {
