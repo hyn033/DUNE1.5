@@ -5,7 +5,7 @@
 #include "io.h"
 #include "display.h"
 
-//1) 준비 - 화면배치 및 건물 위치를 설정
+// 2) - 커서 더블클릭 코드 구현 완료
 
 void map_making(void);
 void message_making(void);
@@ -20,6 +20,11 @@ POSITION sample_obj_next_position(void);
 
 /* ================= control =================== */
 int sys_clock = 0;		// system-wide clock(ms)
+int click_start_timer = 0; //타이머 시작
+int double_click = 80;
+CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
+bool timer_on = 0;
+KEY last_key=k_none;
 CURSOR cursor = { { 1, 1 }, {1, 1} };
 
 
@@ -52,7 +57,7 @@ int main(void) {
 	message_making();
 	situation_making();
 	order_making();
-	intro();
+	//intro();
 	display(resource, map, cursor);
 	display_message(message);
 	display_situation(situation);
@@ -60,10 +65,26 @@ int main(void) {
 	while (1) {
 		// loop 돌 때마다(즉, TICK==10ms마다) 키 입력 확인
 		KEY key = get_key();
-
-		// 키 입력이 있으면 처리
-		if (is_arrow_key(key)) {
-			cursor_move(ktod(key));
+		if (click_start_timer > double_click && timer_on) { //타이머가 켜져있고 70초를 넘겼을 경우엔 한칸 움직이기
+			cursor_move(ktod(last_key)); 
+			timer_on = 0; 
+			click_start_timer = 0; 
+		}
+		if (is_arrow_key(key)) { // 키 입력이 있으면 처리
+			if (!timer_on) { //타이머가 꺼져있으면
+				timer_on = 1;
+				last_key = key;
+			}
+			else if (last_key == key) { //타이머가 켜져있고 키가 같을 경우
+				for (int i = 0; i < 4; i++) {
+					cursor_move(ktod(key));
+					if (i == 0)
+						dash_cursor.previous = cursor.previous;
+					timer_on = 0;
+					click_start_timer = 0;
+				}
+				cursor.previous = dash_cursor.previous;
+			}
 		}
 		else {
 			// 방향키 외의 입력
@@ -74,13 +95,13 @@ int main(void) {
 			default: break;
 			}
 		}
-
 		// 샘플 오브젝트 동작
 		sample_obj_move();
-
 		// 화면 출력
 		display(resource, map, cursor);
 		Sleep(TICK);
+		if (timer_on) //타이머가 켜져있을때만 카운트
+			click_start_timer += 10;
 		sys_clock += 10;
 	}
 }
@@ -218,7 +239,6 @@ void cursor_move(DIRECTION dir) {
 	// validation check
 	if (1 <= new_pos.row && new_pos.row <= MAP_HEIGHT - 2 && \
 		1 <= new_pos.column && new_pos.column <= MAP_WIDTH - 2) {
-
 		cursor.previous = cursor.current;
 		cursor.current = new_pos;
 	}

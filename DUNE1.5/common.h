@@ -9,6 +9,7 @@
 
 /* ================= system parameters =================== */
 #define TICK 10		// time unit(ms)
+#define dash 4 //4Ä­ ÀÌµ¿
 
 #define N_LAYER 2
 #define MAP_WIDTH	60
