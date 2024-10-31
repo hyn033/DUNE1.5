@@ -11,6 +11,7 @@
 #include "common.h"
 
 // 표시할 색상 정의. 대충 맞춰 뒀는데, 취향껏 추가하거나 변경하기
+#define COLOR_CLEAN		0
 #define COLOR_DEFAULT	15   //검은 배경 + 하얀 색
 #define COLOR_CURSOR	240  //하얀 배경 + 검정 색   (7*16)+0
 #define COLOR_RESOURCE  112  //회색 배경 + 검정 색   (7*16)+0
@@ -19,7 +20,7 @@
 #define COLOR_ROCK  143		 //진한 회색 배경 + 하얀 색  (8*16)+15
 #define COLOR_SPICE 207		 //주황 배경 + 검정 색	(6*16)+0
 #define COLOR_PLATE 15		 //검정 배경 + 하얀 색	(0*16)+15
-#define COLOR_SANDWARM 111	 //진한 노랑 배경 + 하얀 색	(6*16)+15
+#define COLOR_SANDWARM 224	 //진한 노랑 배경 + 하얀 색	(6*16)+15
 #define COLOR_SCREEN 112	 //회색 배경 + 검정 색
 
 // 지금은 자원, 맵, 커서만 표시
@@ -30,8 +31,4 @@ void display(
 	int map_color[MAP_HEIGHT][MAP_WIDTH],
 	CURSOR cursor
 );
-void display_message(char message[BOX_HEIGHT][MAP_WIDTH]);
-void display_situation(char situation[MAP_HEIGHT][BOX_WIDTH]);
-void display_order(char order[BOX_HEIGHT][BOX_WIDTH]);
-void map_coloring(int map_color[MAP_HEIGHT][MAP_WIDTH]);
 #endif

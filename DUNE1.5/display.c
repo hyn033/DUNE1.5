@@ -22,9 +22,7 @@ void project(char src[N_LAYER][MAP_HEIGHT][MAP_WIDTH], char dest[MAP_HEIGHT][MAP
 void display_resource(RESOURCE resource);
 void display_map(char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH],int map_color[MAP_HEIGHT][MAP_WIDTH]);
 void display_cursor(CURSOR cursor);
-void display_message(char message[BOX_HEIGHT][MAP_WIDTH]);
-void display_situation(char situation[MAP_HEIGHT][BOX_WIDTH]);
-void display_order(char order[BOX_HEIGHT][BOX_WIDTH]);
+void display_situation_text(CURSOR);
 extern int map_color[MAP_HEIGHT][MAP_WIDTH];
 
 void display(
@@ -87,28 +85,3 @@ void display_cursor(CURSOR cursor) {
 	printc(padd(map_pos, curr), ch, COLOR_CURSOR);  //현재 커서 위치를 표시
 }
 
-void display_message(char message[BOX_HEIGHT][MAP_WIDTH]) {
-	for (int i = 0; i < BOX_HEIGHT; i++) {
-		for (int j = 0; j < MAP_WIDTH; j++) {
-			POSITION pos = { i, j };
-			printc(padd(message_pos, pos), message[i][j], COLOR_DEFAULT);
-		}
-	}
-}
-
-void display_situation(char situation[MAP_HEIGHT][BOX_WIDTH]) {
-	for (int i = 0; i < MAP_HEIGHT; i++) {
-		for (int j = 0; j < BOX_WIDTH; j++) {
-			POSITION pos = { i, j };
-			printc(padd(situation_pos, pos), situation[i][j], COLOR_DEFAULT);
-		}
-	}
-}
-void display_order(char order[BOX_HEIGHT][BOX_WIDTH]) {
-	for (int i = 0; i < BOX_HEIGHT; i++) {
-		for (int j = 0; j < BOX_WIDTH; j++) {
-			POSITION pos = { i, j };
-			printc(padd(order_pos, pos), order[i][j], COLOR_DEFAULT);
-		}
-	}
-}

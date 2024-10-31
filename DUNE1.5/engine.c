@@ -5,13 +5,17 @@
 #include "io.h"
 #include "display.h"
 
-// 건물&유닛, 커서 색 추가
+// 맵의 건물 및 유닛 선택(스페이스바) 및 취소(esc) 구현
+// +초기 배치 코드 배열에서 for문 출력으로 변경
 
 void map_making(void);
 void map_coloring(void);
 void message_making(void);
 void situation_making(void);
 void order_making(void);
+void clean_situation(CURSOR cursor);
+void view_situation(CURSOR cursor);
+void view_order(CURSOR cursor);
 void intro(void);
 void outro(void);
 void cursor_move(DIRECTION dir);
@@ -31,10 +35,33 @@ CURSOR cursor = { { 1, 1 }, {1, 1} };
 
 /* ================= game data =================== */
 char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH] = { 0 };   //map 정보
-char message[BOX_HEIGHT][MAP_WIDTH] = { 0 };		//메세지 창 
-char situation[MAP_HEIGHT][BOX_WIDTH] = { 0 };		//상태창 
-char order[BOX_HEIGHT][BOX_WIDTH] = { 0 };			//명령창
 int map_color[MAP_HEIGHT][MAP_WIDTH] = { 0 };		//map 색 정보
+char text_situ[13][50] = {
+	"나의 [본진] 이다.", // text[0] 우리 본진
+	"이 곳은 적의 ???이다.", // text[1] 적 본진
+	"[사막지형] 이다.", //text[2] 사막지형
+	"아무 것도 할 수 없어 보인다.", //text[3] 사막지형
+	"[장판]이다.",  //text[4] 장판
+	"[스파이스 매장지] 이다.", //text[5] 스파이스
+	"스파이스 매장량 : 8 ",  //text[6] 스파이스
+	"딱딱한 [돌] 이다.",  //text[7] 돌
+	"자세히 알 수는 없을 것 같다.", //text[8] 적 본진
+	"건물을 지을 수 있다.", //text[9] 장판
+	"[하베스터] 이다.", //text[10] 하베스터
+	"[샌드웜] 이다.", //text[11] 하베스터
+	"다가가지 않는 것이 좋아보인다.." //text[12] 하베스터
+};
+char text_order[10][50] = {
+	"H : 하베스터 생산", //text[0] 본진 명령어
+	"H : 수확하기",		//text[1] 농부 명령어
+	"M : 움직이기"		//text[2] 
+};
+// extern
+extern char backbuf[MAP_HEIGHT][MAP_WIDTH]; 
+extern const POSITION message_pos; //message가 시작하는 위치(map아래)
+extern const POSITION situation_pos; //situation이 시작하는 위치(map옆)
+extern const POSITION order_pos; //order가 시작하는 위치(map대각선)
+
 
 RESOURCE resource = {
 	.spice = 0,
@@ -61,9 +88,7 @@ int main(void) {
 	order_making();
 	//intro();
 	display(resource, map, map_color, cursor);
-	display_message(message);
-	display_situation(situation);
-	display_order(order);
+
 	while (1) {
 		// loop 돌 때마다(즉, TICK==10ms마다) 키 입력 확인
 		KEY key = get_key();
@@ -92,8 +117,16 @@ int main(void) {
 			// 방향키 외의 입력
 			switch (key) {
 			case k_quit: outro();
-			case k_none:
-			case k_undef:
+			case k_none: break;
+			case k_undef:break;
+			case k_space: 
+				clean_situation(cursor);
+				view_situation(cursor);
+				view_order(cursor);
+				break;
+			case k_esc:
+				clean_situation(cursor);
+				break;
 			default: break;
 			}
 		}
@@ -101,6 +134,7 @@ int main(void) {
 		sample_obj_move();
 		// 화면 출력
 		display(resource, map, map_color, cursor);
+		
 		Sleep(TICK);
 		if (timer_on) //타이머가 켜져있을때만 카운트
 			click_start_timer += 10;
@@ -211,51 +245,51 @@ void map_coloring(void) {
 }
 
 void message_making(void) {
-	// layer 0(map[0])에 지형 생성
-	for (int i = 0; i < MAP_WIDTH; i++) {
-		message[0][i] = '*';
-		message[BOX_HEIGHT - 1][i] = '*';
-	}//박스의 윗, 아랫부분 채우기
-
-	for (int i = 1; i < BOX_HEIGHT - 1; i++) {
-		message[i][0] = '*';
-		message[i][MAP_WIDTH - 1] = '*';
-		for (int j = 1; j < MAP_WIDTH - 1; j++) {
-			message[i][j] = ' ';
-		}//가운데 공백 채우기
-	}//박스의 양쪽 채우기
+	for (int i = 0; i < BOX_HEIGHT; i++) {
+		for (int j = 0; j < MAP_WIDTH; j++) {
+			POSITION pos = { i, j };
+			padd(message_pos, pos);
+			gotoxy(padd(message_pos, pos));
+			if (i == 0 || i == BOX_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) {
+				set_color(COLOR_DEFAULT);
+				printf("*");
+			}
+			else
+				printf("");
+		}
+	}
 }
 
 void situation_making(void) {
-	// layer 0(map[0])에 지형 생성
-	for (int i = 0; i < BOX_WIDTH; i++) {
-		situation[0][i] = '*';
-		situation[MAP_HEIGHT - 1][i] = '*';
-	}//박스의 윗, 아랫부분 채우기
-
-	for (int i = 1; i < MAP_HEIGHT - 1; i++) {
-		situation[i][0] = '*';
-		situation[i][BOX_WIDTH - 1] = '*';
-		for (int j = 1; j < BOX_WIDTH - 1; j++) {
-			situation[i][j] = ' ';
-		}//가운데 공백 채우기
-	}//박스의 양쪽 채우기
+	for (int i = 0; i < MAP_HEIGHT; i++) {
+		for (int j = 0; j < BOX_WIDTH; j++) {
+			POSITION pos = { i, j };
+			padd(situation_pos, pos);
+			gotoxy(padd(situation_pos, pos));
+			if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == BOX_WIDTH - 1) {
+				set_color(COLOR_DEFAULT);
+				printf("*");
+			}
+			else
+				printf("");
+		}
+	}
 }
 
 void order_making(void) {
-	// layer 0(map[0])에 지형 생성
-	for (int i = 0; i < BOX_WIDTH; i++) {
-		order[0][i] = '*';
-		order[BOX_HEIGHT - 1][i] = '*';
-	}//박스의 윗, 아랫부분 채우기
-
-	for (int i = 1; i < BOX_HEIGHT - 1; i++) {
-		order[i][0] = '*';
-		order[i][BOX_WIDTH - 1] = '*';
-		for (int j = 1; j < BOX_WIDTH - 1; j++) {
-			order[i][j] = ' ';
-		}//가운데 공백 채우기
-	}//박스의 양쪽 채우기
+	for (int i = 0; i < BOX_HEIGHT; i++) {
+		for (int j = 0; j < BOX_WIDTH; j++) {
+			POSITION pos = { i, j };
+			padd(order_pos, pos);
+			gotoxy(padd(order_pos, pos));
+			if (i == 0 || i == BOX_HEIGHT - 1 || j == 0 || j == BOX_WIDTH - 1) {
+				set_color(COLOR_DEFAULT);
+				printf("*");
+			}
+			else
+				printf("");
+		}
+	}
 }
 
 // (가능하다면) 지정한 방향으로 커서 이동
@@ -271,6 +305,81 @@ void cursor_move(DIRECTION dir) {
 	}
 }
 
+void clean_situation(CURSOR cursor) {
+	for (int i = 5; i < 9; i++) {
+		for (int j = 0; j < BOX_WIDTH; j++) {
+			if (j != 0 && j != BOX_WIDTH - 1) {
+				POSITION pos = { i, j };
+				gotoxy(padd(situation_pos, pos));
+				set_color(COLOR_CLEAN);
+				printf(" ");
+			}
+		}
+	}
+	for (int i = 3; i < 6; i++) {
+		for (int j = 0; j < BOX_WIDTH; j++) {
+			if (j != 0 && j != BOX_WIDTH - 1) {
+				POSITION pos = { i, j };
+				gotoxy(padd(order_pos, pos));
+				set_color(COLOR_CLEAN);
+				printf(" ");
+			}
+		}
+	}
+}
+
+void view_situation(CURSOR cursor) {
+	int x = cursor.current.row;
+	int y = cursor.current.column;
+	POSITION pos = { 6, 5 };
+	gotoxy(padd(situation_pos, pos));
+	set_color(COLOR_DEFAULT);
+
+	if (map[0][x][y] == 'B' && (y == 1 || y == 2)) printf("%s", text_situ[0]);
+	else if (map[0][x][y] == 'B' && (x == 1 || x == 2)) {
+		printf("%s", text_situ[1]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[8]);
+	}
+	else if (map[1][x][y] == 'H') printf("%s", text_situ[10]);
+	else if (map[1][x][y] == 'W') {
+		printf("%s", text_situ[11]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[12]);
+	}
+	else if (map[0][x][y] == ' ') {
+		printf("%s", text_situ[2]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[3]);
+	}
+	else if (map[0][x][y] == 'P') {
+		printf("%s", text_situ[4]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[9]);
+	}
+	else if (map[0][x][y] == 'S') {
+		printf("%s", text_situ[5]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[6]);
+	}
+	else if (map[0][x][y] == 'R') printf("%s", text_situ[7]);
+}
+
+void view_order(CURSOR cursor) {
+	int x = cursor.current.row;
+	int y = cursor.current.column;
+	POSITION pos = { 4, 4 };
+	gotoxy(padd(order_pos, pos));
+	set_color(COLOR_DEFAULT);
+
+	if(map[0][x][y] == 'B' && (y == 1 || y == 2)) printf("%s", text_order[0]);
+	else if (map[1][x][y] == 'H') printf("%s\t\t%s", text_order[1],text_order[2]);
+}
 /* ================= sample object movement =================== */
 POSITION sample_obj_next_position(void) {
 	// 현재 위치와 목적지를 비교해서 이동 방향 결정	
