@@ -35,6 +35,7 @@ void display(
 	display_resource(resource);
 	display_map(map,map_color);
 	display_cursor(cursor);
+	set_color(COLOR_DEFAULT);
 }
 
 void display_resource(RESOURCE resource) {

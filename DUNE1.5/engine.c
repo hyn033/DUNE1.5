@@ -5,8 +5,8 @@
 #include "io.h"
 #include "display.h"
 
-// 맵의 건물 및 유닛 선택(스페이스바) 및 취소(esc) 구현
-// +초기 배치 코드 배열에서 for문 출력으로 변경
+// 중립 유닛인 샌드웜 움직임 구현
+
 
 void map_making(void);
 void map_coloring(void);
@@ -20,8 +20,8 @@ void intro(void);
 void outro(void);
 void cursor_move(DIRECTION dir);
 void sample_obj_move(void);
-POSITION sample_obj_next_position(void);
-
+void dest_sandwarm(void);
+POSITION sandwarm_position(int);
 
 /* ================= control =================== */
 int sys_clock = 0;		// system-wide clock(ms)
@@ -31,7 +31,7 @@ bool timer_on = 0;
 CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
 KEY last_key=k_none;
 CURSOR cursor = { { 1, 1 }, {1, 1} };
-
+POSITION destination = { 0, 0 };  //유닛이 있을때 샌드웜의 목적지임
 
 /* ================= game data =================== */
 char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH] = { 0 };   //map 정보
@@ -70,12 +70,21 @@ RESOURCE resource = {
 	.population_max = 0
 };
 
-OBJECT_SAMPLE obj = {
-	.pos = {1, 1},
-	.dest = {MAP_HEIGHT - 2, MAP_WIDTH - 2},
-	.repr = 'o',
-	.speed = 300,
+OBJECT_SAMPLE sandW[2] = {
+	{
+	.pos = {3, 10},
+	.dest = {0, 0},
+	.repr = 'W',
+	.speed = 700,
 	.next_move_time = 300
+	},
+	{
+	.pos = {13, 40},
+	.dest = {0,0},
+	.repr = 'W',
+	.speed = 700,
+	.next_move_time = 300
+	}
 };
 
 /* ================= main() =================== */
@@ -131,8 +140,10 @@ int main(void) {
 			}
 		}
 		// 샘플 오브젝트 동작
+		dest_sandwarm();
 		sample_obj_move();
 		// 화면 출력
+		map_coloring();
 		display(resource, map, map_color, cursor);
 		
 		Sleep(TICK);
@@ -180,6 +191,7 @@ void map_making(void) {
 			map[1][i][j] = -1;
 		}
 	}
+
 	//본진
 	map[0][1][58] = 'B';
 	map[0][1][57] = 'B';
@@ -210,17 +222,18 @@ void map_making(void) {
 	map[0][14][52] = 'R';
 	map[0][7][44] = 'R';
 	map[0][10][12] = 'R';
+
 	//스파이스 매장지
 	map[0][12][1] = 'S';
 	map[0][5][58] = 'S';
-	//샌드웜 			
-	map[1][3][10] = 'W';
-	map[1][13][40] = 'W';
+
 	//하베스터
 	map[1][14][1] = 'H';
 	map[1][3][58] = 'H';
-	// object sample
-	map[1][obj.pos.row][obj.pos.column] = 'o';
+
+	//샌드웜 
+	map[1][sandW[0].pos.row][sandW[0].pos.column] = 'W';
+	map[1][sandW[1].pos.row][sandW[1].pos.column] = 'W';
 }
 
 void map_coloring(void) {
@@ -378,62 +391,98 @@ void view_order(CURSOR cursor) {
 	set_color(COLOR_DEFAULT);
 
 	if(map[0][x][y] == 'B' && (y == 1 || y == 2)) printf("%s", text_order[0]);
-	else if (map[1][x][y] == 'H') printf("%s\t\t%s", text_order[1],text_order[2]);
+	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) printf("%s\t\t%s", text_order[1],text_order[2]);
 }
 /* ================= sample object movement =================== */
-POSITION sample_obj_next_position(void) {
-	// 현재 위치와 목적지를 비교해서 이동 방향 결정	
-	POSITION diff = psub(obj.dest, obj.pos);
-	DIRECTION dir;
-
-	// 목적지 도착. 지금은 단순히 원래 자리로 왕복
-	if (diff.row == 0 && diff.column == 0) {
-		if (obj.dest.row == 1 && obj.dest.column == 1) {
-			// topleft --> bottomright로 목적지 설정
-			POSITION new_dest = { MAP_HEIGHT - 2, MAP_WIDTH - 2 };
-			obj.dest = new_dest;
+POSITION sandwarm_position(int i) {
+	POSITION curr = { sandW[i].pos.row, sandW[i].pos.column};
+	POSITION dest = { sandW[i].dest.row, sandW[i].dest.column};
+	if (dest.row == 0 && dest.column == 0) {
+		//유닛이 없을 때 샌드웜의 움직임
+		int key = (rand() % 5) + 1;
+		POSITION next_pos = pmove(curr, key);
+		if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
+			1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
+			map[1][next_pos.row][next_pos.column] < 0 && \
+			map[0][next_pos.row][next_pos.column] != 'R' && \
+			map[0][next_pos.row][next_pos.column] != 'B' && \
+			map[0][next_pos.row][next_pos.column] != 'P') return next_pos;
+		else return sandW[i].pos;  // 제자리
+	}
+	else {
+		//유닛이 있을 때 샌드웜의 움직임
+		POSITION diff = psub(dest, curr);
+		DIRECTION dir;
+		if (abs(diff.row) >= abs(diff.column)) {
+			dir = (diff.row >= 0) ? d_down : d_up;
 		}
 		else {
-			// bottomright --> topleft로 목적지 설정
-			POSITION new_dest = { 1, 1 };
-			obj.dest = new_dest;
+			dir = (diff.column >= 0) ? d_right : d_left;
 		}
-		return obj.pos;
-	}
-
-	// 가로축, 세로축 거리를 비교해서 더 먼 쪽 축으로 이동
-	if (abs(diff.row) >= abs(diff.column)) {
-		dir = (diff.row >= 0) ? d_down : d_up;
-	}
-	else {
-		dir = (diff.column >= 0) ? d_right : d_left;
-	}
-
-	// validation check
-	// next_pos가 맵을 벗어나지 않고, (지금은 없지만)장애물에 부딪히지 않으면 다음 위치로 이동
-	// 지금은 충돌 시 아무것도 안 하는데, 나중에는 장애물을 피해가거나 적과 전투를 하거나... 등등
-	POSITION next_pos = pmove(obj.pos, dir);
-	if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
-		1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
-		map[1][next_pos.row][next_pos.column] < 0) {
-
-		return next_pos;
-	}
-	else {
-		return obj.pos;  // 제자리
+		POSITION next_pos = pmove(curr, dir);
+		if (map[0][next_pos.row][next_pos.column] == 'R') {
+			if (dir == d_right || dir == d_left) dir = (diff.row >= 0) ? d_down : d_up;
+			else dir = (diff.column >= 0) ? d_right : d_left;
+			next_pos = pmove(curr, dir);
+			return next_pos;
+		}
+		else if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
+			1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
+			map[0][next_pos.row][next_pos.column] != 'R' && \
+			map[0][next_pos.row][next_pos.column] != 'B' && \
+			map[0][next_pos.row][next_pos.column] != 'P') return next_pos;
+		else return sandW[i].pos;  // 제자리
 	}
 }
 
 void sample_obj_move(void) {
-	if (sys_clock <= obj.next_move_time) {
-		// 아직 시간이 안 됐음
-		return;
+	for (int i = 0; i < 2; i++) {
+		if (sys_clock <= sandW[i].next_move_time) {
+			// 아직 시간이 안 됐음
+			return;
+		}
+
+		// 오브젝트(건물, 유닛 등)은 layer1(map[1])에 저장
+		map[1][sandW[i].pos.row][sandW[i].pos.column] = -1;
+		sandW[i].pos = sandwarm_position(i);
+		map[1][sandW[i].pos.row][sandW[i].pos.column] = sandW[i].repr;
+
+		sandW[i].next_move_time = sys_clock + sandW[i].speed;
 	}
+}
 
-	// 오브젝트(건물, 유닛 등)은 layer1(map[1])에 저장
-	map[1][obj.pos.row][obj.pos.column] = -1;
-	obj.pos = sample_obj_next_position();
-	map[1][obj.pos.row][obj.pos.column] = obj.repr;
-
-	obj.next_move_time = sys_clock + obj.speed;
+void dest_sandwarm(void) {
+	sandW[0].dest.row = 0;
+	sandW[0].dest.column = 0;
+	sandW[1].dest.row = 0;
+	sandW[1].dest.column = 0;
+	POSITION compare_dest = { 0,0 };
+	//초기 목적지 정함
+	for (int x = 0; x < 2; x++) {
+		for (int i = 0; i < MAP_HEIGHT; i++) {
+			for (int j = 0; j < MAP_WIDTH; j++) {
+				if (map[1][i][j] == 'H') {
+					//초기 목적지 ( 거리에 상관하지 않고 가장 마지막으로 탐색된 유닛임)
+					sandW[x].dest.row = i;
+					sandW[x].dest.column = j;
+				}
+			}
+		}
+	}
+	//초기 목적지 보다 가까운 곳을 재탐색
+	for (int x = 0; x < 2; x++) {
+		for (int i = 0; i < MAP_HEIGHT; i++) {
+			for (int j = 0; j < MAP_WIDTH; j++) {
+				if (map[1][i][j] == 'H') {
+					//초기 목적지 ( 거리에 상관하지 않고 가장 마지막으로 탐색된 유닛임)
+					compare_dest.row = i;
+					compare_dest.column = j;
+					if ((abs(sandW[x].pos.column - compare_dest.column)) < (abs(sandW[x].pos.column - sandW[x].dest.column))) {
+						sandW[x].dest.row = compare_dest.row;
+						sandW[x].dest.column = compare_dest.column;
+					}
+				}
+			}
+		}
+	}
 }
