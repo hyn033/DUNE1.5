@@ -5,7 +5,7 @@
 #include "io.h"
 #include "display.h"
 
-// 중립 유닛인 샌드웜 움직임 구현
+//샌드웜의 배설 구현 (스파이스 생산지)
 
 
 void map_making(void);
@@ -21,12 +21,14 @@ void outro(void);
 void cursor_move(DIRECTION dir);
 void sample_obj_move(void);
 void dest_sandwarm(void);
+void spice_making(void);
 POSITION sandwarm_position(int);
 
 /* ================= control =================== */
 int sys_clock = 0;		// system-wide clock(ms)
 int click_start_timer = 0; //타이머 시작
 int double_click = 90;
+int spice_time = 30000;
 bool timer_on = 0;
 CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
 KEY last_key=k_none;
@@ -65,9 +67,9 @@ extern const POSITION order_pos; //order가 시작하는 위치(map대각선)
 
 RESOURCE resource = {
 	.spice = 0,
-	.spice_max = 0,
-	.population = 0,
-	.population_max = 0
+	.spice_max = 50,
+	.population = 2,
+	.population_max = 10
 };
 
 OBJECT_SAMPLE sandW[2] = {
@@ -75,15 +77,15 @@ OBJECT_SAMPLE sandW[2] = {
 	.pos = {3, 10},
 	.dest = {0, 0},
 	.repr = 'W',
-	.speed = 700,
-	.next_move_time = 300
+	.speed = 1500,
+	.next_move_time = 1500
 	},
 	{
 	.pos = {13, 40},
 	.dest = {0,0},
 	.repr = 'W',
-	.speed = 700,
-	.next_move_time = 300
+	.speed = 1500,
+	.next_move_time = 1500
 	}
 };
 
@@ -142,6 +144,7 @@ int main(void) {
 		// 샘플 오브젝트 동작
 		dest_sandwarm();
 		sample_obj_move();
+		spice_making();
 		// 화면 출력
 		map_coloring();
 		display(resource, map, map_color, cursor);
@@ -224,8 +227,8 @@ void map_making(void) {
 	map[0][10][12] = 'R';
 
 	//스파이스 매장지
-	map[0][12][1] = 'S';
-	map[0][5][58] = 'S';
+	map[0][12][1] = '7';
+	map[0][5][58] = '7';
 
 	//하베스터
 	map[1][14][1] = 'H';
@@ -249,7 +252,7 @@ void map_coloring(void) {
 				else map_color[i][j] = COLOR_BASE_BLUE;
 			}
 			else if (map[0][i][j] == 'R') map_color[i][j] = COLOR_ROCK;
-			else if (map[0][i][j] == 'S') map_color[i][j] = COLOR_SPICE;
+			else if ('1'<= map[0][i][j] && map[0][i][j] <= '9') map_color[i][j] = COLOR_SPICE;
 			else if (map[0][i][j] == 'P') map_color[i][j] = COLOR_PLATE;
 			else if (map[1][i][j] == 'W') map_color[i][j] = COLOR_SANDWARM;
 			else map_color[i][j] =COLOR_SCREEN;
@@ -267,8 +270,7 @@ void message_making(void) {
 				set_color(COLOR_DEFAULT);
 				printf("*");
 			}
-			else
-				printf("");
+			else printf("");
 		}
 	}
 }
@@ -399,7 +401,7 @@ POSITION sandwarm_position(int i) {
 	POSITION dest = { sandW[i].dest.row, sandW[i].dest.column};
 	if (dest.row == 0 && dest.column == 0) {
 		//유닛이 없을 때 샌드웜의 움직임
-		int key = (rand() % 5) + 1;
+		int key = (rand() % 4) + 1;
 		POSITION next_pos = pmove(curr, key);
 		if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
 			1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
@@ -485,4 +487,20 @@ void dest_sandwarm(void) {
 			}
 		}
 	}
+}
+
+void spice_making(void) {
+	for (int i = 0; i < 2; i++) {
+		if (sys_clock <= spice_time) {
+			// 아직 시간이 안 됐음
+			return;
+		}
+		// 오브젝트(건물, 유닛 등)은 layer1(map[1])에 저장
+		int num_spice = (rand() % 9) + 1;
+		char ch = num_spice + '0';
+		set_color(COLOR_SPICE);
+		map[0][sandW[i].pos.row][sandW[i].pos.column] = ch;
+	}
+	spice_time = sys_clock + 100000;
+	
 }
