@@ -6,7 +6,7 @@
 #include "display.h"
 #include <string.h>
 
-//시스템 메세지 오류 수정
+//시스템 메세지 추가 - 샌드웜이 하베스트 먹었을 때
 
 void map_making(void);
 void map_coloring(void);
@@ -16,6 +16,7 @@ void order_making(void);
 void clean_situation(CURSOR cursor);
 void view_situation(CURSOR cursor);
 void view_order(CURSOR cursor);
+void view_system(CURSOR cursor);
 void intro(void);
 void outro(void);
 void cursor_move(DIRECTION dir);
@@ -64,6 +65,7 @@ char text_system[10][50] = {
 	"하베스트가 생성되었습니다.", //text[0] 하베스트 생성
 	"스파이스가 부족합니다.", //text[1] 스파이스 부족
 	"더이상 생성할 수 없습니다.", //text[2] 하베스트 자리 부족
+	"샌드웜이 하베스트를 먹었습니다!", //text[3] 하베스트 먹힘
 };
 char system_view[7][58] = { 0 };
 // extern
@@ -73,10 +75,10 @@ extern const POSITION situation_pos; //situation이 시작하는 위치(map옆)
 extern const POSITION order_pos; //order가 시작하는 위치(map대각선)
 
 RESOURCE resource = {
-	.spice = 50,
-	.spice_max = 50,
-	.population = 2,
-	.population_max = 10
+	.spice = 30,
+	.spice_max = 100,
+	.population = 1,
+	.population_max = 4
 };
 
 OBJECT_SAMPLE sandW[2] = {
@@ -409,6 +411,24 @@ void view_order(CURSOR cursor) {
 	}
 	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) printf("%s\t\t%s", text_order[1],text_order[2]);
 }
+
+void view_system(CURSOR cursor) {
+	POSITION m_pos = { 7,2 };
+	for (int i = 1; i < 8; i++) {
+		for (int j = 1; j < MAP_WIDTH; j++) {
+			POSITION pos = { i, j };
+			gotoxy(padd(message_pos, pos));
+			set_color(COLOR_CLEAN);
+			printf(" ");
+		}
+	}
+	for (int i = 6; i >= 0; i--) {
+		gotoxy(padd(message_pos, m_pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", system_view[i]);
+		m_pos.row -= 1;
+	}
+}
 /* ================= sample object movement =================== */
 POSITION sandwarm_position(int i) {
 	POSITION curr = { sandW[i].pos.row, sandW[i].pos.column};
@@ -456,6 +476,17 @@ void sample_obj_move(void) {
 		// 오브젝트(건물, 유닛 등)은 layer1(map[1])에 저장
 		map[1][sandW[i].pos.row][sandW[i].pos.column] = -1;
 		sandW[i].pos = sandwarm_position(i);
+		if (map[1][sandW[i].pos.row][sandW[i].pos.column] == 'H') {
+			strcpy_s(system_view[0], 58, system_view[1]);
+			strcpy_s(system_view[1], 58, system_view[2]);
+			strcpy_s(system_view[2], 58, system_view[3]);
+			strcpy_s(system_view[3], 58, system_view[4]);
+			strcpy_s(system_view[4], 58, system_view[5]);
+			strcpy_s(system_view[5], 58, system_view[6]);
+			snprintf(system_view[6], 58, text_system[3]);
+			resource.population -=1;
+			view_system(cursor);
+		}
 		map[1][sandW[i].pos.row][sandW[i].pos.column] = sandW[i].repr;
 
 		sandW[i].next_move_time = sys_clock + sandW[i].speed;
@@ -519,7 +550,7 @@ void base_order(void) {
 	//본진 위에서 실행하는지 확인
 	int x = cursor.current.row;
 	int y = cursor.current.column;
-	if (map[0][x][y] == 'B' && order_on==0) {
+	if (map[0][x][y] == 'B' && order_on == 0) {
 		strcpy_s(system_view[0], 58, system_view[1]);
 		strcpy_s(system_view[1], 58, system_view[2]);
 		strcpy_s(system_view[2], 58, system_view[3]);
@@ -533,8 +564,8 @@ void base_order(void) {
 				else if (map[1][14][2] != 'H') map[1][14][2] = 'H';
 				else if (map[1][14][3] != 'H') map[1][14][3] = 'H';
 				else if (map[1][14][4] != 'H') map[1][14][4] = 'H';
-				else snprintf(system_view[6], 58, text_system[3]);
 				resource.spice -= 5;
+				resource.population += 1;
 				snprintf(system_view[6], 58, text_system[0]);
 			}
 			else snprintf(system_view[6], 58, text_system[2]);
@@ -542,21 +573,7 @@ void base_order(void) {
 		else {
 			snprintf(system_view[6], 58, text_system[1]);
 		}
-		POSITION m_pos = { 7,2 };
-		for (int i = 1; i < 8; i++) {
-			for (int j = 1; j < MAP_WIDTH; j++) {
-				POSITION pos = { i, j };
-				gotoxy(padd(message_pos, pos));
-				set_color(COLOR_CLEAN);
-				printf(" ");
-			}
-		}
-		for (int i = 6; i >= 0; i--) {
-			gotoxy(padd(message_pos, m_pos));
-			set_color(COLOR_DEFAULT);
-			printf("%s", system_view[i]);
-			m_pos.row -= 1;
-		}
+		view_system(cursor);
 	}
 }
 
