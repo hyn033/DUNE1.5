@@ -6,8 +6,7 @@
 #include "display.h"
 #include <string.h>
 
-//유닛 1기 생산 구현 및 시스템 메세지 구현
-
+//시스템 메세지 오류 수정
 
 void map_making(void);
 void map_coloring(void);
@@ -30,7 +29,7 @@ POSITION sandwarm_position(int);
 int sys_clock = 0;		// system-wide clock(ms)
 int click_start_timer = 0; //타이머 시작
 int double_click = 90;
-int spice_time = 30000;
+int spice_time = 15000;
 int order_on = -1;
 bool timer_on = 0;
 CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
@@ -64,6 +63,7 @@ char text_order[10][50] = {
 char text_system[10][50] = {
 	"하베스트가 생성되었습니다.", //text[0] 하베스트 생성
 	"스파이스가 부족합니다.", //text[1] 스파이스 부족
+	"더이상 생성할 수 없습니다.", //text[2] 하베스트 자리 부족
 };
 char system_view[7][58] = { 0 };
 // extern
@@ -516,24 +516,28 @@ void spice_making(void) {
 }
 
 void base_order(void) {
-	strcpy_s(system_view[0], 58, system_view[1]);
-	strcpy_s(system_view[1], 58, system_view[2]);
-	strcpy_s(system_view[2], 58, system_view[3]);
-	strcpy_s(system_view[3], 58, system_view[4]);
-	strcpy_s(system_view[4], 58, system_view[5]);
-	strcpy_s(system_view[5], 58, system_view[6]);
 	//본진 위에서 실행하는지 확인
 	int x = cursor.current.row;
 	int y = cursor.current.column;
-	POSITION pos = { x,y };
 	if (map[0][x][y] == 'B' && order_on==0) {
+		strcpy_s(system_view[0], 58, system_view[1]);
+		strcpy_s(system_view[1], 58, system_view[2]);
+		strcpy_s(system_view[2], 58, system_view[3]);
+		strcpy_s(system_view[3], 58, system_view[4]);
+		strcpy_s(system_view[4], 58, system_view[5]);
+		strcpy_s(system_view[5], 58, system_view[6]);
+		POSITION pos = { x,y };
 		if (resource.spice >= 5) {
-			if (map[1][14][1] != 'H') map[1][14][1] = 'H';
-			else if (map[1][14][2] != 'H') map[1][14][2] = 'H';
-			else if (map[1][14][3] != 'H') map[1][14][3] = 'H';
-			else if (map[1][14][4] != 'H') map[1][14][4] = 'H';
-			resource.spice -= 5;
-			snprintf(system_view[6], 58, text_system[0]);
+			if (map[1][14][1] != 'H' || map[1][14][2] != 'H' || map[1][14][3] != 'H' || map[1][14][4] != 'H') {
+				if (map[1][14][1] != 'H') map[1][14][1] = 'H';
+				else if (map[1][14][2] != 'H') map[1][14][2] = 'H';
+				else if (map[1][14][3] != 'H') map[1][14][3] = 'H';
+				else if (map[1][14][4] != 'H') map[1][14][4] = 'H';
+				else snprintf(system_view[6], 58, text_system[3]);
+				resource.spice -= 5;
+				snprintf(system_view[6], 58, text_system[0]);
+			}
+			else snprintf(system_view[6], 58, text_system[2]);
 		}
 		else {
 			snprintf(system_view[6], 58, text_system[1]);
@@ -556,6 +560,4 @@ void base_order(void) {
 	}
 }
 
-void cancel_havest(void) {
-	
-}
+//void cancel_havest(void) {}
