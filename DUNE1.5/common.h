@@ -9,7 +9,6 @@
 
 /* ================= system parameters =================== */
 #define TICK 10		// time unit(ms)
-#define dash 4 //4칸 이동
 
 #define N_LAYER 2
 #define MAP_WIDTH	60
@@ -39,6 +38,7 @@ typedef enum {
 	k_undef, // 정의되지 않은 키 입력
 	k_space, //스페이스 바 
 	k_esc, //esc키
+	k_H, //H키
 } KEY;
 
 

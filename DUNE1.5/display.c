@@ -11,9 +11,9 @@
 // 출력할 내용들의 좌상단(topleft) 좌표
 const POSITION resource_pos = { 0, 0 };
 const POSITION map_pos = { 1, 0 };  //map이 시작하는 위치(최상단)
-const POSITION message_pos = { MAP_HEIGHT + 1 , 0 }; //message가 시작하는 위치(map아래)
-const POSITION situation_pos = { 1,MAP_WIDTH+1};  //situation이 시작하는 위치(map옆)
-const POSITION order_pos = { MAP_HEIGHT + 1 ,	MAP_WIDTH + 1}; //order가 시작하는 위치(map대각선)
+const POSITION message_pos = { MAP_HEIGHT + 1 , 0 }; //message 창 실행 하는 위치
+const POSITION situation_pos = { 1, MAP_WIDTH }; //situation이 시작하는 위치(map옆)
+const POSITION order_pos = { MAP_HEIGHT+1,MAP_WIDTH}; //order가 시작하는 위치(map대각선)
 
 char backbuf[MAP_HEIGHT][MAP_WIDTH] = { 0 };
 char frontbuf[MAP_HEIGHT][MAP_WIDTH] = { 0 };

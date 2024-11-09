@@ -4,8 +4,9 @@
 #include "common.h"
 #include "io.h"
 #include "display.h"
+#include <string.h>
 
-//샌드웜의 배설 구현 (스파이스 생산지)
+//유닛 1기 생산 구현 및 시스템 메세지 구현
 
 
 void map_making(void);
@@ -22,6 +23,7 @@ void cursor_move(DIRECTION dir);
 void sample_obj_move(void);
 void dest_sandwarm(void);
 void spice_making(void);
+void base_order(void);
 POSITION sandwarm_position(int);
 
 /* ================= control =================== */
@@ -29,6 +31,7 @@ int sys_clock = 0;		// system-wide clock(ms)
 int click_start_timer = 0; //타이머 시작
 int double_click = 90;
 int spice_time = 30000;
+int order_on = -1;
 bool timer_on = 0;
 CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
 KEY last_key=k_none;
@@ -45,7 +48,7 @@ char text_situ[13][50] = {
 	"아무 것도 할 수 없어 보인다.", //text[3] 사막지형
 	"[장판]이다.",  //text[4] 장판
 	"[스파이스 매장지] 이다.", //text[5] 스파이스
-	"스파이스 매장량 : 8 ",  //text[6] 스파이스
+	"스파이스 매장량 : ",  //text[6] 스파이스
 	"딱딱한 [돌] 이다.",  //text[7] 돌
 	"자세히 알 수는 없을 것 같다.", //text[8] 적 본진
 	"건물을 지을 수 있다.", //text[9] 장판
@@ -58,15 +61,19 @@ char text_order[10][50] = {
 	"H : 수확하기",		//text[1] 농부 명령어
 	"M : 움직이기"		//text[2] 
 };
+char text_system[10][50] = {
+	"하베스트가 생성되었습니다.", //text[0] 하베스트 생성
+	"스파이스가 부족합니다.", //text[1] 스파이스 부족
+};
+char system_view[7][58] = { 0 };
 // extern
 extern char backbuf[MAP_HEIGHT][MAP_WIDTH]; 
 extern const POSITION message_pos; //message가 시작하는 위치(map아래)
 extern const POSITION situation_pos; //situation이 시작하는 위치(map옆)
 extern const POSITION order_pos; //order가 시작하는 위치(map대각선)
 
-
 RESOURCE resource = {
-	.spice = 0,
+	.spice = 50,
 	.spice_max = 50,
 	.population = 2,
 	.population_max = 10
@@ -137,6 +144,9 @@ int main(void) {
 				break;
 			case k_esc:
 				clean_situation(cursor);
+				break;
+			case k_H:
+				base_order();
 				break;
 			default: break;
 			}
@@ -376,23 +386,27 @@ void view_situation(CURSOR cursor) {
 		gotoxy(padd(situation_pos, pos));
 		printf("%s", text_situ[9]);
 	}
-	else if (map[0][x][y] == 'S') {
+	else if ('1'<= map[0][x][y] && map[0][x][y] <= '9') {
 		printf("%s", text_situ[5]);
 		POSITION pos = { 8, 5 };
 		gotoxy(padd(situation_pos, pos));
-		printf("%s", text_situ[6]);
+		printf("%s%c",text_situ[6], map[0][x][y]);
 	}
 	else if (map[0][x][y] == 'R') printf("%s", text_situ[7]);
 }
 
 void view_order(CURSOR cursor) {
+	order_on = -1;
 	int x = cursor.current.row;
 	int y = cursor.current.column;
 	POSITION pos = { 4, 4 };
 	gotoxy(padd(order_pos, pos));
 	set_color(COLOR_DEFAULT);
 
-	if(map[0][x][y] == 'B' && (y == 1 || y == 2)) printf("%s", text_order[0]);
+	if (map[0][x][y] == 'B' && (y == 1 || y == 2)) {
+		printf("%s", text_order[0]);
+		order_on = 0;
+	}
 	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) printf("%s\t\t%s", text_order[1],text_order[2]);
 }
 /* ================= sample object movement =================== */
@@ -401,14 +415,11 @@ POSITION sandwarm_position(int i) {
 	POSITION dest = { sandW[i].dest.row, sandW[i].dest.column};
 	if (dest.row == 0 && dest.column == 0) {
 		//유닛이 없을 때 샌드웜의 움직임
-		int key = (rand() % 4) + 1;
-		POSITION next_pos = pmove(curr, key);
+		int dir = (rand() % 4) + 1; 
+		POSITION next_pos = pmove(curr, dir); 
 		if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
 			1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
-			map[1][next_pos.row][next_pos.column] < 0 && \
-			map[0][next_pos.row][next_pos.column] != 'R' && \
-			map[0][next_pos.row][next_pos.column] != 'B' && \
-			map[0][next_pos.row][next_pos.column] != 'P') return next_pos;
+			map[0][next_pos.row][next_pos.column] == ' ') return next_pos;
 		else return sandW[i].pos;  // 제자리
 	}
 	else {
@@ -422,7 +433,7 @@ POSITION sandwarm_position(int i) {
 			dir = (diff.column >= 0) ? d_right : d_left;
 		}
 		POSITION next_pos = pmove(curr, dir);
-		if (map[0][next_pos.row][next_pos.column] == 'R') {
+		if (map[0][next_pos.row][next_pos.column] != ' ') {
 			if (dir == d_right || dir == d_left) dir = (diff.row >= 0) ? d_down : d_up;
 			else dir = (diff.column >= 0) ? d_right : d_left;
 			next_pos = pmove(curr, dir);
@@ -430,9 +441,7 @@ POSITION sandwarm_position(int i) {
 		}
 		else if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
 			1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
-			map[0][next_pos.row][next_pos.column] != 'R' && \
-			map[0][next_pos.row][next_pos.column] != 'B' && \
-			map[0][next_pos.row][next_pos.column] != 'P') return next_pos;
+			map[0][next_pos.row][next_pos.column] == ' ') return next_pos;
 		else return sandW[i].pos;  // 제자리
 	}
 }
@@ -460,10 +469,11 @@ void dest_sandwarm(void) {
 	sandW[1].dest.column = 0;
 	POSITION compare_dest = { 0,0 };
 	//초기 목적지 정함
+
 	for (int x = 0; x < 2; x++) {
 		for (int i = 0; i < MAP_HEIGHT; i++) {
 			for (int j = 0; j < MAP_WIDTH; j++) {
-				if (map[1][i][j] == 'H') {
+				if (map[1][i][j] == 'H' && map[0][i][j] != 'P') {
 					//초기 목적지 ( 거리에 상관하지 않고 가장 마지막으로 탐색된 유닛임)
 					sandW[x].dest.row = i;
 					sandW[x].dest.column = j;
@@ -475,7 +485,7 @@ void dest_sandwarm(void) {
 	for (int x = 0; x < 2; x++) {
 		for (int i = 0; i < MAP_HEIGHT; i++) {
 			for (int j = 0; j < MAP_WIDTH; j++) {
-				if (map[1][i][j] == 'H') {
+				if (map[1][i][j] == 'H' && map[0][i][j] != 'P') {
 					//초기 목적지 ( 거리에 상관하지 않고 가장 마지막으로 탐색된 유닛임)
 					compare_dest.row = i;
 					compare_dest.column = j;
@@ -502,5 +512,50 @@ void spice_making(void) {
 		map[0][sandW[i].pos.row][sandW[i].pos.column] = ch;
 	}
 	spice_time = sys_clock + 100000;
+	
+}
+
+void base_order(void) {
+	strcpy_s(system_view[0], 58, system_view[1]);
+	strcpy_s(system_view[1], 58, system_view[2]);
+	strcpy_s(system_view[2], 58, system_view[3]);
+	strcpy_s(system_view[3], 58, system_view[4]);
+	strcpy_s(system_view[4], 58, system_view[5]);
+	strcpy_s(system_view[5], 58, system_view[6]);
+	//본진 위에서 실행하는지 확인
+	int x = cursor.current.row;
+	int y = cursor.current.column;
+	POSITION pos = { x,y };
+	if (map[0][x][y] == 'B' && order_on==0) {
+		if (resource.spice >= 5) {
+			if (map[1][14][1] != 'H') map[1][14][1] = 'H';
+			else if (map[1][14][2] != 'H') map[1][14][2] = 'H';
+			else if (map[1][14][3] != 'H') map[1][14][3] = 'H';
+			else if (map[1][14][4] != 'H') map[1][14][4] = 'H';
+			resource.spice -= 5;
+			snprintf(system_view[6], 58, text_system[0]);
+		}
+		else {
+			snprintf(system_view[6], 58, text_system[1]);
+		}
+		POSITION m_pos = { 7,2 };
+		for (int i = 1; i < 8; i++) {
+			for (int j = 1; j < MAP_WIDTH; j++) {
+				POSITION pos = { i, j };
+				gotoxy(padd(message_pos, pos));
+				set_color(COLOR_CLEAN);
+				printf(" ");
+			}
+		}
+		for (int i = 6; i >= 0; i--) {
+			gotoxy(padd(message_pos, m_pos));
+			set_color(COLOR_DEFAULT);
+			printf("%s", system_view[i]);
+			m_pos.row -= 1;
+		}
+	}
+}
+
+void cancel_havest(void) {
 	
 }

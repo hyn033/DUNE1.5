@@ -27,6 +27,8 @@ KEY get_key(void) {
 
 	int byte = _getch();    // 입력된 키를 전달 받기
 	switch (byte) {
+	case 'h': return k_H;	// 'h'를 누르면 명령 실행
+	case 'H': return k_H;	// 'H'를 누르면 명령 실행 
 	case 'q': return k_quit;  // 'q'를 누르면 종료
 	case 32: return k_space;  //'스페이스바를 누르면 k_space 전달
 	case 27: return k_esc;	 //esc키 누르면 k_esc전달
