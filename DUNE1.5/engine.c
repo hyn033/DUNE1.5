@@ -6,7 +6,7 @@
 #include "display.h"
 #include <string.h>
 
-//시스템 메세지 추가 - 샌드웜이 하베스트 먹었을 때
+//시스템 메세지 추가 - 샌드웜이 스파이스 배출했을때, 샌드웜이 적 하베스트를 먹었을때
 
 void map_making(void);
 void map_coloring(void);
@@ -66,6 +66,8 @@ char text_system[10][50] = {
 	"스파이스가 부족합니다.", //text[1] 스파이스 부족
 	"더이상 생성할 수 없습니다.", //text[2] 하베스트 자리 부족
 	"샌드웜이 하베스트를 먹었습니다!", //text[3] 하베스트 먹힘
+	"샌드웜이 스파이스를 배출했습니다!", //text[4] 샌드웜 스파이스 배출
+	"샌드웜이 적 하베스트를 먹었습니다!", //text[5] 적 하베스트 먹힘
 };
 char system_view[7][58] = { 0 };
 // extern
@@ -472,7 +474,6 @@ void sample_obj_move(void) {
 			// 아직 시간이 안 됐음
 			return;
 		}
-
 		// 오브젝트(건물, 유닛 등)은 layer1(map[1])에 저장
 		map[1][sandW[i].pos.row][sandW[i].pos.column] = -1;
 		sandW[i].pos = sandwarm_position(i);
@@ -483,8 +484,14 @@ void sample_obj_move(void) {
 			strcpy_s(system_view[3], 58, system_view[4]);
 			strcpy_s(system_view[4], 58, system_view[5]);
 			strcpy_s(system_view[5], 58, system_view[6]);
-			snprintf(system_view[6], 58, text_system[3]);
-			resource.population -=1;
+			if (map[1][sandW[0].pos.row][sandW[0].pos.column] == 'H') {
+				resource.population -= 1;
+				snprintf(system_view[6], 58, text_system[3]);
+			}
+			else if(map[1][sandW[1].pos.row][sandW[1].pos.column] == 'H') {
+				resource.population -= 1;
+				snprintf(system_view[6], 58, text_system[5]);
+			}
 			view_system(cursor);
 		}
 		map[1][sandW[i].pos.row][sandW[i].pos.column] = sandW[i].repr;
@@ -543,7 +550,14 @@ void spice_making(void) {
 		map[0][sandW[i].pos.row][sandW[i].pos.column] = ch;
 	}
 	spice_time = sys_clock + 100000;
-	
+	strcpy_s(system_view[0], 58, system_view[1]);
+	strcpy_s(system_view[1], 58, system_view[2]);
+	strcpy_s(system_view[2], 58, system_view[3]);
+	strcpy_s(system_view[3], 58, system_view[4]);
+	strcpy_s(system_view[4], 58, system_view[5]);
+	strcpy_s(system_view[5], 58, system_view[6]);
+	snprintf(system_view[6], 58, text_system[4]);
+	view_system(cursor);
 }
 
 void base_order(void) {
