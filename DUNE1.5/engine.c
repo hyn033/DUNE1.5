@@ -6,7 +6,10 @@
 #include "display.h"
 #include <string.h>
 
-//시스템 메세지 추가 - 샌드웜이 스파이스 배출했을때, 샌드웜이 적 하베스트를 먹었을때
+//DUNE 1.5 - 1~ 5 구현 완료
+//+본진 위에 커서가 있고 본진 명령어가 창에 띄워져 있어야 명령어 키 입력이 가능하도록 추가
+//+우리 하베스트와 적 하베스트 먹히는 대사 분류
+
 
 void map_making(void);
 void map_coloring(void);
@@ -28,11 +31,11 @@ POSITION sandwarm_position(int);
 
 /* ================= control =================== */
 int sys_clock = 0;		// system-wide clock(ms)
-int click_start_timer = 0; //타이머 시작
-int double_click = 90;
-int spice_time = 15000;
-int order_on = -1;
-bool timer_on = 0;
+int click_start_timer = 0; //타이머 시작하여 시간을 잼
+int double_click = 90;  //90이내의 반복 클릭시 대쉬하도록 하기 위함
+int spice_time = 15000;  //샌드웜의 첫 스파이스 배출 시간 ( 이후에는 생성주기가 100000임)
+int order_on = -1;  //변수가 0일때 본진 명령을 실행하도록 하기 위한 전역변수
+bool timer_on = 0;  //타이머 키는 변수
 CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
 KEY last_key=k_none;
 CURSOR cursor = { { 1, 1 }, {1, 1} };
@@ -76,14 +79,14 @@ extern const POSITION message_pos; //message가 시작하는 위치(map아래)
 extern const POSITION situation_pos; //situation이 시작하는 위치(map옆)
 extern const POSITION order_pos; //order가 시작하는 위치(map대각선)
 
-RESOURCE resource = {
+RESOURCE resource = {  //초기 하베스트는 최대 4로 지정함
 	.spice = 30,
 	.spice_max = 100,
 	.population = 1,
 	.population_max = 4
 };
 
-OBJECT_SAMPLE sandW[2] = {
+OBJECT_SAMPLE sandW[2] = {  //샌드웜 2마리
 	{
 	.pos = {3, 10},
 	.dest = {0, 0},
@@ -92,7 +95,7 @@ OBJECT_SAMPLE sandW[2] = {
 	.next_move_time = 1500
 	},
 	{
-	.pos = {13, 40},
+	.pos = {13, 50},
 	.dest = {0,0},
 	.repr = 'W',
 	.speed = 1500,
@@ -411,7 +414,8 @@ void view_order(CURSOR cursor) {
 		printf("%s", text_order[0]);
 		order_on = 0;
 	}
-	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) printf("%s\t\t%s", text_order[1],text_order[2]);
+	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) printf("%s\t\t%s", text_order[1], text_order[2]);
+	else order_on = -1;
 }
 
 void view_system(CURSOR cursor) {
@@ -489,7 +493,6 @@ void sample_obj_move(void) {
 				snprintf(system_view[6], 58, text_system[3]);
 			}
 			else if(map[1][sandW[1].pos.row][sandW[1].pos.column] == 'H') {
-				resource.population -= 1;
 				snprintf(system_view[6], 58, text_system[5]);
 			}
 			view_system(cursor);
@@ -507,11 +510,10 @@ void dest_sandwarm(void) {
 	sandW[1].dest.column = 0;
 	POSITION compare_dest = { 0,0 };
 	//초기 목적지 정함
-
 	for (int x = 0; x < 2; x++) {
 		for (int i = 0; i < MAP_HEIGHT; i++) {
 			for (int j = 0; j < MAP_WIDTH; j++) {
-				if (map[1][i][j] == 'H' && map[0][i][j] != 'P') {
+				if (map[1][i][j] == 'H') {
 					//초기 목적지 ( 거리에 상관하지 않고 가장 마지막으로 탐색된 유닛임)
 					sandW[x].dest.row = i;
 					sandW[x].dest.column = j;
@@ -523,8 +525,8 @@ void dest_sandwarm(void) {
 	for (int x = 0; x < 2; x++) {
 		for (int i = 0; i < MAP_HEIGHT; i++) {
 			for (int j = 0; j < MAP_WIDTH; j++) {
-				if (map[1][i][j] == 'H' && map[0][i][j] != 'P') {
-					//초기 목적지 ( 거리에 상관하지 않고 가장 마지막으로 탐색된 유닛임)
+				if (map[1][i][j] == 'H') {
+					//새 목적지 거리 탐색
 					compare_dest.row = i;
 					compare_dest.column = j;
 					if ((abs(sandW[x].pos.column - compare_dest.column)) < (abs(sandW[x].pos.column - sandW[x].dest.column))) {
@@ -591,4 +593,3 @@ void base_order(void) {
 	}
 }
 
-//void cancel_havest(void) {}
