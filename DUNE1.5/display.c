@@ -56,7 +56,7 @@ void display2(
 void display_resource(RESOURCE resource) {
 	set_color(COLOR_RESOURCE);  //글자색 바꾸는 함수
 	gotoxy(resource_pos);
-	printf("spice = %d/%d, population=%d/%d\n",
+	printf("             spice = %d/%d, population=%d/%d                \n",
 		resource.spice, resource.spice_max,
 		resource.population, resource.population_max
 	);

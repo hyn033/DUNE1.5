@@ -102,15 +102,17 @@ typedef struct {
 } OBJECT_SAMPLE;
 
 typedef struct {
+	bool onoff;     //활성/비활성
 	POSITION pos;	//위치
 	POSITION dest;	//목적지
 	int cost;		//비용
-	int unit_max;	//최대 유닛 수
+	int population;	//1유닛당 증가하는 인구수
 	int next_move_time;	//이동 주기
 	int power;		//공격력
 	int next_hit_time; //공격주기
 	int hp;			//체력
 	int outlook;    //시야
+	char ch;		//표시
 } unit;
 
 typedef struct {
