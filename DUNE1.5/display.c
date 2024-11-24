@@ -22,8 +22,11 @@ void project(char src[N_LAYER][MAP_HEIGHT][MAP_WIDTH], char dest[MAP_HEIGHT][MAP
 void display_resource(RESOURCE resource);
 void display_map(char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH],int map_color[MAP_HEIGHT][MAP_WIDTH]);
 void display_cursor(CURSOR cursor);
+void display_4cursor();
 void display_situation_text(CURSOR);
-extern int map_color[MAP_HEIGHT][MAP_WIDTH];
+void remove_4cursor(CURSOR);
+extern int map_color[MAP_HEIGHT][MAP_WIDTH];	
+extern CURSOR cursor;
 
 void display(
 	RESOURCE resource,
@@ -35,6 +38,18 @@ void display(
 	display_resource(resource);
 	display_map(map,map_color);
 	display_cursor(cursor);
+	set_color(COLOR_DEFAULT);
+}
+void display2(
+	RESOURCE resource,
+	char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH],
+	int map_color[MAP_HEIGHT][MAP_WIDTH],
+	CURSOR cursor
+)
+{
+	display_resource(resource);
+	display_map(map, map_color);
+	display_4cursor(cursor);
 	set_color(COLOR_DEFAULT);
 }
 
@@ -86,3 +101,47 @@ void display_cursor(CURSOR cursor) {
 	printc(padd(map_pos, curr), ch, COLOR_CURSOR);  //현재 커서 위치를 표시
 }
 
+void display_4cursor() {
+	POSITION prev = cursor.previous;
+	POSITION curr = cursor.current;
+
+	// 이전 커서 지우기 (2x2)
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < 2; j++) {
+			char ch = frontbuf[prev.row + i][prev.column + j];
+			printc(padd(map_pos, (POSITION) { prev.row + i, prev.column + j }),
+				ch, map_color[prev.row + i][prev.column + j]);
+		}
+	}
+
+	// 새로운 화면 커서(2x2)
+	if (curr.row == 16) {
+		cursor.current.row = 15;
+		curr.row = 15;
+	}
+	if (curr.column == 58) {
+		cursor.current.column = 57;
+		curr.column = 57;
+	}
+
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < 2; j++) {
+			char ch = frontbuf[curr.row + i][curr.column + j];
+			printc(padd(map_pos, (POSITION) { curr.row + i, curr.column + j }),
+				ch, COLOR_CURSOR);
+		}
+	}
+}
+void remove_4cursor(CURSOR cursor) {
+	POSITION prev = cursor.previous;
+	POSITION curr = cursor.current;
+
+	// 이전 커서 지우기 (2x2)
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < 2; j++) {
+			char ch = frontbuf[curr.row + i][curr.column + j];
+			printc(padd(map_pos, (POSITION) { curr.row + i, curr.column + j }),
+				ch, map_color[curr.row + i][curr.column + j]); 
+		}
+	}
+}

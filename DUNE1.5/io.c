@@ -27,6 +27,16 @@ KEY get_key(void) {
 
 	int byte = _getch();    // 입력된 키를 전달 받기
 	switch (byte) {
+	case 's': return k_S;	// 's'를 누르면 명령 실행
+	case 'S': return k_S;	// 'S'를 누르면 명령 실행 
+	case 'g': return k_G;	// 'g'를 누르면 명령 실행
+	case 'G': return k_G;	// 'G'를 누르면 명령 실행 
+	case 'D': return k_D;	// 'D'를 누르면 명령 실행
+	case 'd': return k_D;	// 'd'를 누르면 명령 실행 
+	case 'p': return k_P;	// 'P'를 누르면 명령 실행
+	case 'P': return k_P;	// 'p'를 누르면 명령 실행 
+	case 'b': return k_B;	// 'b'를 누르면 명령 실행
+	case 'B': return k_B;	// 'B'를 누르면 명령 실행 
 	case 'h': return k_H;	// 'h'를 누르면 명령 실행
 	case 'H': return k_H;	// 'H'를 누르면 명령 실행 
 	case 'q': return k_quit;  // 'q'를 누르면 종료

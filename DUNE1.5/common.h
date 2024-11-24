@@ -39,6 +39,11 @@ typedef enum {
 	k_space, //스페이스 바 
 	k_esc, //esc키
 	k_H, //H키
+	k_B,  //B키
+	k_G,  //G키
+	k_D,  //D키
+	k_P,  //P키
+	k_S,  //S키
 } KEY;
 
 
@@ -96,4 +101,27 @@ typedef struct {
 	int next_move_time;	// 다음에 움직일 시간
 } OBJECT_SAMPLE;
 
+typedef struct {
+	POSITION pos;	//위치
+	POSITION dest;	//목적지
+	int cost;		//비용
+	int unit_max;	//최대 유닛 수
+	int next_move_time;	//이동 주기
+	int power;		//공격력
+	int next_hit_time; //공격주기
+	int hp;			//체력
+	int outlook;    //시야
+} unit;
+
+typedef struct {
+	bool onoff;
+	POSITION pos1;
+	POSITION pos2;
+	POSITION pos3;
+	POSITION pos4;
+	int hp;
+	char ch;
+	unsigned char color;
+	int cost;
+}build;
 #endif

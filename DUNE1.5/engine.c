@@ -6,10 +6,10 @@
 #include "display.h"
 #include <string.h>
 
-//DUNE 1.5 - 1~ 5 구현 완료
-//+본진 위에 커서가 있고 본진 명령어가 창에 띄워져 있어야 명령어 키 입력이 가능하도록 추가
-//+우리 하베스트와 적 하베스트 먹히는 대사 분류
-
+//건설 기능 추가
+//+건설 목록 및 명령어 추가
+//+건물 관련 시스템 메세지 추가
+//+커서 변환 기능 추가
 
 void map_making(void);
 void map_coloring(void);
@@ -17,6 +17,7 @@ void message_making(void);
 void situation_making(void);
 void order_making(void);
 void clean_situation(CURSOR cursor);
+void clean_order(CURSOR cursor);
 void view_situation(CURSOR cursor);
 void view_order(CURSOR cursor);
 void view_system(CURSOR cursor);
@@ -27,24 +28,45 @@ void sample_obj_move(void);
 void dest_sandwarm(void);
 void spice_making(void);
 void base_order(void);
+void build_order(void);
+void making_plate(void);
+void plate_order(void);
+void dormitory_order(void);
+void garage_order(void);
+void barracks_order(void);
+void shelter_order(void);
+void factory_order(void);
+void arena_order(void);
+void add_struct_map(void);
+void making_buildings_AT(int);
+void making_buildings_HC(int);
 POSITION sandwarm_position(int);
 
 /* ================= control =================== */
-int sys_clock = 0;		// system-wide clock(ms)
+int sys_clock = 0;  	// system-wide clock(ms)
 int click_start_timer = 0; //타이머 시작하여 시간을 잼
 int double_click = 90;  //90이내의 반복 클릭시 대쉬하도록 하기 위함
 int spice_time = 15000;  //샌드웜의 첫 스파이스 배출 시간 ( 이후에는 생성주기가 100000임)
-int order_on = -1;  //변수가 0일때 본진 명령을 실행하도록 하기 위한 전역변수
+int order_on = 1;  //명령스위치 [ 0 : 본진명령 / 1 : 건설 명령 (이때 B를 누를 수 있음) / 2 : 건설 메뉴 (이때 P,G,D,B,S 선택가능
+								//3 : plate 설치 가능 / 4 : dormitory 설치 가능 ]
+int change_cursor = -1; //커서 변경 변수 [ 0 : 커서 4칸 변경 ]
+int B_cnt = 0; //B키를 두번 입력할 시 barracks 건설
+int buildings_cnt_AT = 0;
+int buildings_cnt_HC = 0;
+int units_cnt = 0;
 bool timer_on = 0;  //타이머 키는 변수
 CURSOR dash_cursor = { {0,0},{0,0} }; //대쉬를 했을 때 대쉬 후 전 위치를 저장 -> 맵 상 흔적을 남기지 않기 위해
 KEY last_key=k_none;
 CURSOR cursor = { { 1, 1 }, {1, 1} };
 POSITION destination = { 0, 0 };  //유닛이 있을때 샌드웜의 목적지임
+build buildings_AT[100] = { 0 };
+build buildings_HC[100] = { 0 };
+unit units_AT[100] = { 0 };
 
 /* ================= game data =================== */
 char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH] = { 0 };   //map 정보
 int map_color[MAP_HEIGHT][MAP_WIDTH] = { 0 };		//map 색 정보
-char text_situ[13][50] = {
+char text_situ[30][50] = {
 	"나의 [본진] 이다.", // text[0] 우리 본진
 	"이 곳은 적의 ???이다.", // text[1] 적 본진
 	"[사막지형] 이다.", //text[2] 사막지형
@@ -57,12 +79,27 @@ char text_situ[13][50] = {
 	"건물을 지을 수 있다.", //text[9] 장판
 	"[하베스터] 이다.", //text[10] 하베스터
 	"[샌드웜] 이다.", //text[11] 하베스터
-	"다가가지 않는 것이 좋아보인다.." //text[12] 하베스터
+	"다가가지 않는 것이 좋아보인다.", //text[12] 하베스터
+	"안락한 숙소이다.", //text[13] 숙소
+	"인구 수가 10 증가한다.", //text[14] 숙소
+	"넓은 창고이다.", //text[15] 창고
+	"스파이스 저장량이 10 증가한다.", //text[16] 창고
+	"보병을 생산할 수 있는 병영이다.", //text[17] 병영
+	"생산비용 : 1", //text[18] 병영
+	"프레멘을 생산할 수 있는 은신처이다.", //text[19] 은신처
+	"생산비용 : 5", //text[20] 은신처
 };
 char text_order[10][50] = {
 	"H : 하베스터 생산", //text[0] 본진 명령어
 	"H : 수확하기",		//text[1] 농부 명령어
-	"M : 움직이기"		//text[2] 
+	"M : 움직이기",		//text[2] 
+	"B : 건설하기",		//text[3] 건설 명령어 ( 기본 설정 )
+	"P : 장판 건설",	//text[4] 건설 명령어
+	"D : 숙소 건설",	//text[5] 건설 명령어
+	"G : 창고 건설",	//text[6] 건설 명령어
+	"B : 병영 건설",	//text[7] 건설 명령어
+	"S : 은신처 건설",	//text[8] 건설 명령어
+	"Space : 건설하기",	//text[9] 건설 명령어
 };
 char text_system[10][50] = {
 	"하베스트가 생성되었습니다.", //text[0] 하베스트 생성
@@ -71,6 +108,9 @@ char text_system[10][50] = {
 	"샌드웜이 하베스트를 먹었습니다!", //text[3] 하베스트 먹힘
 	"샌드웜이 스파이스를 배출했습니다!", //text[4] 샌드웜 스파이스 배출
 	"샌드웜이 적 하베스트를 먹었습니다!", //text[5] 적 하베스트 먹힘
+	"이 곳에는 건설할 수 없습니다.",	  //text[6] 위치 설치 안될때
+	"건설이 완료되었습니다.",			  //text[7] 위치 설치 될때
+
 };
 char system_view[7][58] = { 0 };
 // extern
@@ -80,8 +120,8 @@ extern const POSITION situation_pos; //situation이 시작하는 위치(map옆)
 extern const POSITION order_pos; //order가 시작하는 위치(map대각선)
 
 RESOURCE resource = {  //초기 하베스트는 최대 4로 지정함
-	.spice = 30,
-	.spice_max = 100,
+	.spice = 20,
+	.spice_max = 20,
 	.population = 1,
 	.population_max = 4
 };
@@ -102,6 +142,8 @@ OBJECT_SAMPLE sandW[2] = {  //샌드웜 2마리
 	.next_move_time = 1500
 	}
 };
+
+
 
 /* ================= main() =================== */
 int main(void) {
@@ -145,15 +187,57 @@ int main(void) {
 			case k_none: break;
 			case k_undef:break;
 			case k_space: 
+				making_plate();
+				making_buildings_AT(order_on);
+				making_buildings_HC(order_on);
+				if(change_cursor==0)
+					remove_4cursor(cursor); 
 				clean_situation(cursor);
+				clean_order(cursor);
 				view_situation(cursor);
 				view_order(cursor);
 				break;
 			case k_esc:
+				remove_4cursor(cursor);
+				clean_order(cursor);
 				clean_situation(cursor);
+				B_cnt = 0;
 				break;
 			case k_H:
 				base_order();
+				break;
+			case k_B:
+				B_cnt++;
+				build_order();
+				if (B_cnt == 2) {
+					if (order_on == 2) clean_order(cursor);
+					barracks_order();
+					B_cnt = 0;
+				}
+				break;
+			case k_P:
+				if(order_on==2)
+					clean_order(cursor);
+				plate_order();
+				B_cnt=0;
+				break;
+			case k_D:
+				if(order_on==2)
+					clean_order(cursor);
+				dormitory_order();
+				B_cnt = 0;
+				break;
+			case k_G:
+				if (order_on == 2)
+					clean_order(cursor);
+				garage_order();
+				B_cnt = 0;
+				break;
+			case k_S:
+				if (order_on == 2)
+					clean_order(cursor);
+				shelter_order();
+				B_cnt = 0;
 				break;
 			default: break;
 			}
@@ -163,9 +247,12 @@ int main(void) {
 		sample_obj_move();
 		spice_making();
 		// 화면 출력
+		add_struct_map(); //구조체 내용을 map에 반영
 		map_coloring();
-		display(resource, map, map_color, cursor);
-		
+		if(change_cursor == 0)
+			display2(resource, map, map_color, cursor);
+		else
+			display(resource, map, map_color, cursor);
 		Sleep(TICK);
 		if (timer_on) //타이머가 켜져있을때만 카운트
 			click_start_timer += 10;
@@ -260,18 +347,26 @@ void map_coloring(void) {
 	for (int i = 0; i < MAP_HEIGHT; i++) {
 		for (int j = 0; j < MAP_WIDTH; j++) {
 			if (map[0][i][j] == 'x') map_color[i][j] = COLOR_DEFAULT;
-			else if (map[0][i][j] == 'B') {
-				if (i == 1 || i == 2) map_color[i][j] = COLOR_BASE_RED;
-				else map_color[i][j] = COLOR_BASE_BLUE;
-			}
 			else if (map[1][i][j] == 'H') {
 				if (i == 3) map_color[i][j] = COLOR_BASE_RED;
-				else map_color[i][j] = COLOR_BASE_BLUE;
+				else
+					map_color[i][j] = COLOR_BASE_BLUE;
 			}
 			else if (map[0][i][j] == 'R') map_color[i][j] = COLOR_ROCK;
-			else if ('1'<= map[0][i][j] && map[0][i][j] <= '9') map_color[i][j] = COLOR_SPICE;
-			else if (map[0][i][j] == 'P') map_color[i][j] = COLOR_PLATE;
+			else if ('1' <= map[0][i][j] && map[0][i][j] <= '9') map_color[i][j] = COLOR_SPICE;
+			else if (map[0][i][j] == 'P')
+				map_color[i][j] = COLOR_PLATE;
 			else if (map[1][i][j] == 'W') map_color[i][j] = COLOR_SANDWARM;
+			else if (map[0][i][j] == 'D') map_color[i][j] = COLOR_BUILD_AT;
+			else if (map[0][i][j] == 'G') map_color[i][j] = COLOR_BUILD_AT;
+			else if (map[0][i][j] == 'S') map_color[i][j] = COLOR_BUILD_AT;
+			else if (map[0][i][j] == 'F') map_color[i][j] = COLOR_BUILD_HC;
+			else if (map[0][i][j] == 'A') map_color[i][j] = COLOR_BUILD_HC;
+			else if (map[0][i][j] == 'B') {
+				if ((i == 1 || i == 2)&&(j==57||j==58)) map_color[i][j] = COLOR_BASE_RED;
+				else if ((i == 15 || i == 16) && (j == 1 || j == 2)) map_color[i][j] = COLOR_BASE_BLUE;
+				else map_color[i][j] = COLOR_BUILD_AT;
+			}
 			else map_color[i][j] =COLOR_SCREEN;
 		}
 	}
@@ -322,6 +417,10 @@ void order_making(void) {
 				printf("");
 		}
 	}
+	POSITION pos = { 4, 4 };
+	gotoxy(padd(order_pos, pos));
+	set_color(COLOR_DEFAULT);
+	printf("%s", text_order[3]);
 }
 
 // (가능하다면) 지정한 방향으로 커서 이동
@@ -330,10 +429,19 @@ void cursor_move(DIRECTION dir) {
 	POSITION new_pos = pmove(curr, dir);
 
 	// validation check
-	if (1 <= new_pos.row && new_pos.row <= MAP_HEIGHT - 2 && \
-		1 <= new_pos.column && new_pos.column <= MAP_WIDTH - 2) {
-		cursor.previous = cursor.current;
-		cursor.current = new_pos;
+	if (change_cursor == 0) {
+		if (1 <= new_pos.row && new_pos.row <= MAP_HEIGHT - 3 && \
+			1 <= new_pos.column && new_pos.column <= MAP_WIDTH - 3) {
+			cursor.previous = cursor.current;
+			cursor.current = new_pos;
+		}
+	}
+	else {
+		if (1 <= new_pos.row && new_pos.row <= MAP_HEIGHT - 2 && \
+			1 <= new_pos.column && new_pos.column <= MAP_WIDTH - 2) {
+			cursor.previous = cursor.current;
+			cursor.current = new_pos;
+		}
 	}
 }
 
@@ -348,7 +456,16 @@ void clean_situation(CURSOR cursor) {
 			}
 		}
 	}
-	for (int i = 3; i < 6; i++) {
+	POSITION pos = { 4, 4 };
+	gotoxy(padd(order_pos, pos));
+	set_color(COLOR_DEFAULT);
+	printf("%s", text_order[3]);
+	order_on = 1;
+	change_cursor = -1;
+}
+
+void clean_order(CURSOR cursor) {
+	for (int i = 2; i < 7; i++) {
 		for (int j = 0; j < BOX_WIDTH; j++) {
 			if (j != 0 && j != BOX_WIDTH - 1) {
 				POSITION pos = { i, j };
@@ -366,34 +483,60 @@ void view_situation(CURSOR cursor) {
 	POSITION pos = { 6, 5 };
 	gotoxy(padd(situation_pos, pos));
 	set_color(COLOR_DEFAULT);
-
-	if (map[0][x][y] == 'B' && (y == 1 || y == 2)) printf("%s", text_situ[0]);
-	else if (map[0][x][y] == 'B' && (x == 1 || x == 2)) {
-		printf("%s", text_situ[1]);
-		POSITION pos = { 8, 5 };
-		gotoxy(padd(situation_pos, pos));
-		printf("%s", text_situ[8]);
+	if (map[0][x][y] == 'B') {
+		if((y == 1 || y == 2)&&(x ==15 || x ==16))
+			printf("%s", text_situ[0]);
+		else if ((y == 57 || y == 58) && (x == 1 || x == 2)) {
+			printf("%s", text_situ[1]);
+			POSITION pos = { 8, 5 };
+			gotoxy(padd(situation_pos, pos));
+			printf("%s", text_situ[8]);
+		}
+		else {
+			printf("%s", text_situ[17]);
+			POSITION pos = { 8, 5 };
+			gotoxy(padd(situation_pos, pos));
+			printf("%s", text_situ[18]);
+		}
 	}
 	else if (map[1][x][y] == 'H') printf("%s", text_situ[10]);
-	else if (map[1][x][y] == 'W') {
+	else if (map[1][x][y] == 'W') {		//샌드웜
 		printf("%s", text_situ[11]);
 		POSITION pos = { 8, 5 };
 		gotoxy(padd(situation_pos, pos));
 		printf("%s", text_situ[12]);
 	}
-	else if (map[0][x][y] == ' ') {
+	else if (map[0][x][y] == ' ') {		//사막
 		printf("%s", text_situ[2]);
 		POSITION pos = { 8, 5 };
 		gotoxy(padd(situation_pos, pos));
 		printf("%s", text_situ[3]);
 	}
-	else if (map[0][x][y] == 'P') {
+	else if (map[0][x][y] == 'P') {		//장판
 		printf("%s", text_situ[4]);
 		POSITION pos = { 8, 5 };
 		gotoxy(padd(situation_pos, pos));
 		printf("%s", text_situ[9]);
 	}
-	else if ('1'<= map[0][x][y] && map[0][x][y] <= '9') {
+	else if (map[0][x][y] == 'D') {		//숙소
+		printf("%s", text_situ[13]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[14]);
+	}
+	else if (map[0][x][y] == 'G') {  //창고
+		printf("%s", text_situ[15]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[16]);
+	}
+	else if (map[0][x][y] == 'S') {  //은신처
+		printf("%s", text_situ[19]);
+		POSITION pos = { 8, 5 };
+		gotoxy(padd(situation_pos, pos));
+		printf("%s", text_situ[20]);
+	}
+	else if ('1'<= map[0][x][y] && map[0][x][y] <= '9') {		//스파이스 매장지
 		printf("%s", text_situ[5]);
 		POSITION pos = { 8, 5 };
 		gotoxy(padd(situation_pos, pos));
@@ -404,6 +547,7 @@ void view_situation(CURSOR cursor) {
 
 void view_order(CURSOR cursor) {
 	order_on = -1;
+	change_cursor = -1;
 	int x = cursor.current.row;
 	int y = cursor.current.column;
 	POSITION pos = { 4, 4 };
@@ -414,8 +558,14 @@ void view_order(CURSOR cursor) {
 		printf("%s", text_order[0]);
 		order_on = 0;
 	}
-	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) printf("%s\t\t%s", text_order[1], text_order[2]);
-	else order_on = -1;
+	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) {
+		printf("%s\t\t%s", text_order[1], text_order[2]);
+		order_on = -1;
+	}
+	else {
+		printf("%s", text_order[3]);
+		order_on = 1;
+	}
 }
 
 void view_system(CURSOR cursor) {
@@ -593,3 +743,245 @@ void base_order(void) {
 	}
 }
 
+void build_order(void) {
+	if (order_on == 1) {
+		for (int i = 1; i < 6; i++) {
+			POSITION pos = { i + 1, 4 };
+			gotoxy(padd(order_pos, pos));
+			set_color(COLOR_DEFAULT);
+			printf("%s", text_order[4 + i-1]);
+		}
+		order_on = 2;
+	}
+}
+
+void plate_order(void) {
+	if (order_on == 2) {
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[9]);
+		order_on = 3;
+		change_cursor = 0;
+	}
+}
+
+void making_plate(void) {
+	//order_on 가 3일때 실행하도록
+	if (order_on == 3 && resource.spice >= 1) {
+		strcpy_s(system_view[0], 58, system_view[1]);
+		strcpy_s(system_view[1], 58, system_view[2]);
+		strcpy_s(system_view[2], 58, system_view[3]);
+		strcpy_s(system_view[3], 58, system_view[4]);
+		strcpy_s(system_view[4], 58, system_view[5]);
+		strcpy_s(system_view[5], 58, system_view[6]);
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		//커서 기준 4칸에 아무 건물이 없을때만 설치하도록
+		if (map[0][x][y] == ' ' && map[0][x + 1][y] == ' ' && map[0][x][y + 1] == ' ' && map[0][x + 1][y + 1] == ' ') {
+			map[0][x][y] = 'P';
+			map[0][x + 1][y] = 'P';
+			map[0][x][y + 1] = 'P';
+			map[0][x + 1][y + 1] = 'P';
+			resource.spice -= 1;
+			snprintf(system_view[6], 58, text_system[7]);
+		}
+		else snprintf(system_view[6], 58, text_system[6]);
+		view_system(cursor);
+	}
+}
+
+void dormitory_order(void) {
+	if (order_on == 2) {
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[9]);
+		order_on = 4;
+		change_cursor = 0;
+	}
+}
+
+void garage_order(void) {
+	if (order_on == 2) {
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[9]);
+		order_on = 5;
+		change_cursor = 0;
+	}
+}
+
+void barracks_order(void) {
+	if (order_on == 2) {
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[9]);
+		order_on = 6;
+		change_cursor = 0;
+	}
+}
+
+void shelter_order(void) {
+	if (order_on == 2) {
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[9]);
+		order_on = 7;
+		change_cursor = 0;
+	}
+}
+
+void arena_order(void) {
+	if (order_on == 2) {
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[9]);
+		order_on = 8;
+		change_cursor = 0;
+	}
+}
+
+void factory_order(void) {
+	if (order_on == 2) {
+		int x = cursor.current.row;
+		int y = cursor.current.column;
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[9]);
+		order_on = 9;
+		change_cursor = 0;
+	}
+}
+
+void add_struct_map(void) {
+	for (int i = 0; i < buildings_cnt_AT; i++) {
+		if (buildings_AT[i].onoff == 1) {
+			map[0][buildings_AT[i].pos1.row][buildings_AT[i].pos1.column] = buildings_AT[i].ch;
+			map[0][buildings_AT[i].pos2.row][buildings_AT[i].pos2.column] = buildings_AT[i].ch;
+			map[0][buildings_AT[i].pos3.row][buildings_AT[i].pos3.column] = buildings_AT[i].ch;
+			map[0][buildings_AT[i].pos4.row][buildings_AT[i].pos4.column] = buildings_AT[i].ch;
+		}
+	}
+	for (int i = 0; i < buildings_cnt_HC; i++) {
+		if (buildings_HC[i].onoff == 1) {
+			map[0][buildings_HC[i].pos1.row][buildings_HC[i].pos1.column] = buildings_HC[i].ch;
+			map[0][buildings_HC[i].pos2.row][buildings_HC[i].pos2.column] = buildings_HC[i].ch;
+			map[0][buildings_HC[i].pos3.row][buildings_HC[i].pos3.column] = buildings_HC[i].ch;
+			map[0][buildings_HC[i].pos4.row][buildings_HC[i].pos4.column] = buildings_HC[i].ch;
+		}
+	}
+}
+
+void making_buildings_AT(int order) {
+	//order_on 가 4일때 실행하도록
+	int hp, cost;
+	char ch;
+	unsigned char color;
+	if (order == 4 && resource.spice >= 2 ) {
+		hp = 10;
+		ch = 'D';
+		color = COLOR_BUILD_AT;
+		cost = 2;
+	}
+	else if (order == 5 && resource.spice >= 4) {
+		hp = 10;
+		ch = 'G';
+		color = COLOR_BUILD_AT;
+		cost = 4;
+	}
+	else if (order == 6 && resource.spice >= 4) {
+		hp = 20;
+		ch = 'B';
+		color = COLOR_BUILD_AT;
+		cost = 4;
+	}
+	else if (order == 7 && resource.spice >= 5) {
+		hp = 30;
+		ch = 'S';
+		color = COLOR_BUILD_AT;
+		cost = 5;
+	}
+	else return;  //order가 4~7이 아니면 실행 x
+
+	strcpy_s(system_view[0], 58, system_view[1]);
+	strcpy_s(system_view[1], 58, system_view[2]);
+	strcpy_s(system_view[2], 58, system_view[3]);
+	strcpy_s(system_view[3], 58, system_view[4]);
+	strcpy_s(system_view[4], 58, system_view[5]);
+	strcpy_s(system_view[5], 58, system_view[6]);
+	int x = cursor.current.row;
+	int y = cursor.current.column;
+	//커서 기준 4칸에 P가 있을때
+	if (map[0][x][y] == 'P' && map[0][x + 1][y] == 'P' && map[0][x][y + 1] == 'P' && map[0][x + 1][y + 1] == 'P') {
+		buildings_AT[buildings_cnt_AT].onoff = 1;
+		buildings_AT[buildings_cnt_AT].pos1 = (POSITION){ x,y };
+		buildings_AT[buildings_cnt_AT].pos2 = (POSITION){ x + 1,y };
+		buildings_AT[buildings_cnt_AT].pos3 = (POSITION){ x,y + 1 };
+		buildings_AT[buildings_cnt_AT].pos4 = (POSITION){ x + 1,y + 1 };
+		buildings_AT[buildings_cnt_AT].hp = hp;
+		buildings_AT[buildings_cnt_AT].ch = ch;
+		buildings_AT[buildings_cnt_AT].color = color;
+		buildings_AT[buildings_cnt_AT].cost = cost;
+		buildings_cnt_AT++;
+		resource.spice -= cost;
+		snprintf(system_view[6], 58, text_system[7]);
+		if(order == 4) resource.population_max += 10;
+		if(order == 5) resource.spice_max += 10;
+	}
+	else snprintf(system_view[6], 58, text_system[6]);
+	view_system(cursor);
+}
+
+void making_buildings_HC(int order) {
+	//order_on 가 4일때 실행하도록
+	int hp, cost;
+	char ch;
+	unsigned char color;
+	if (order == 8 && resource.spice >= 3) {
+		hp = 10;
+		ch = 'A';
+		color = COLOR_BUILD_HC;
+		cost = 3;
+	}
+	else if (order == 9 && resource.spice >= 5) {
+		hp = 10;
+		ch = 'F';
+		color = COLOR_BUILD_HC;
+		cost = 5;
+	}
+	else return;  //order가 8~9이 아니면 실행 x
+	int x = cursor.current.row;
+	int y = cursor.current.column;
+	//커서 기준 4칸에 P가 있을때
+	if (map[0][x][y] == 'P' && map[0][x + 1][y] == 'P' && map[0][x][y + 1] == 'P' && map[0][x + 1][y + 1] == 'P') {
+		buildings_HC[buildings_cnt_HC].onoff = 1;
+		buildings_HC[buildings_cnt_HC].pos1 = (POSITION){ x,y };
+		buildings_HC[buildings_cnt_HC].pos2 = (POSITION){ x + 1,y };
+		buildings_HC[buildings_cnt_HC].pos3 = (POSITION){ x,y + 1 };
+		buildings_HC[buildings_cnt_HC].pos4 = (POSITION){ x + 1,y + 1 };
+		buildings_HC[buildings_cnt_HC].hp = hp;
+		buildings_HC[buildings_cnt_HC].ch = ch;
+		buildings_HC[buildings_cnt_HC].color = color;
+		buildings_HC[buildings_cnt_HC].cost = cost;
+		buildings_cnt_HC++;
+		resource.spice -= cost;
+	}
+}

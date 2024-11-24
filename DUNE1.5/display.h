@@ -22,6 +22,9 @@
 #define COLOR_PLATE 15		 //검정 배경 + 하얀 색	(0*16)+15
 #define COLOR_SANDWARM 96	 //진한 노랑 배경 + 하얀 색	(6*16)+15
 #define COLOR_SCREEN 224	 //모래 배경 + 검정 색
+#define COLOR_BUILD_AT  159  //파란 배경 + 하얀 색   (13*16)+15
+#define COLOR_BUILD_HC  223  //보라 배경 + 하얀 색   (13*16)+15
+
 
 // 지금은 자원, 맵, 커서만 표시
 // 앞으로 화면에 표시할 내용들 여기에 추가하기
@@ -31,4 +34,11 @@ void display(
 	int map_color[MAP_HEIGHT][MAP_WIDTH],
 	CURSOR cursor
 );
+void display2(
+	RESOURCE resource,
+	char map[N_LAYER][MAP_HEIGHT][MAP_WIDTH],
+	int map_color[MAP_HEIGHT][MAP_WIDTH],
+	CURSOR cursor
+);
+void remove_4cursor(CURSOR cursor);
 #endif
