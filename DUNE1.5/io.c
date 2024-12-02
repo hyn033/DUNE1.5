@@ -39,6 +39,8 @@ KEY get_key(void) {
 	case 'B': return k_B;	// 'B'를 누르면 명령 실행 
 	case 'h': return k_H;	// 'h'를 누르면 명령 실행
 	case 'H': return k_H;	// 'H'를 누르면 명령 실행 
+	case 'm': return k_M;   // 'm'를 누르면 명령 실행 
+	case 'M': return k_M;	// 'M'를 누르면 명령 실행 
 	case 'q': return k_quit;  // 'q'를 누르면 종료
 	case 32: return k_space;  //'스페이스바를 누르면 k_space 전달
 	case 27: return k_esc;	 //esc키 누르면 k_esc전달

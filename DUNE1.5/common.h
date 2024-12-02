@@ -44,6 +44,7 @@ typedef enum {
 	k_D,  //D키
 	k_P,  //P키
 	k_S,  //S키
+	k_M,  //M키
 } KEY;
 
 
@@ -91,7 +92,6 @@ typedef struct {
 	int population_max;  // 수용 가능한 인구 수
 } RESOURCE;
 
-
 // 대강 만들어 봤음. 기능 추가하면서 각자 수정할 것
 typedef struct {
 	POSITION pos;		// 현재 위치(position)
@@ -104,6 +104,7 @@ typedef struct {
 typedef struct {
 	bool onoff;     //활성/비활성
 	POSITION pos;	//위치
+	POSITION home;  //돌아올 위치
 	POSITION dest;	//목적지
 	int cost;		//비용
 	int population;	//1유닛당 증가하는 인구수
@@ -112,6 +113,7 @@ typedef struct {
 	int next_hit_time; //공격주기
 	int hp;			//체력
 	int outlook;    //시야
+	int get;		//수확한 자원
 	char ch;		//표시
 } unit;
 

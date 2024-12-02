@@ -6,9 +6,8 @@
 #include "display.h"
 #include <string.h>
 
-//유닛 목록 구현
-//+유닛 구조체 생성
-//+기존 하베스터를 구조체에 연결
+//하베스터 행동 구현
+//+움직이기, 수확하기 구현
 
 
 void map_making(void);
@@ -41,15 +40,23 @@ void add_struct_map(void);
 void making_buildings_AT(int);
 void making_buildings_HC(int);
 void making_harvest(int x, int y);
+void move_harvest(void);
+void reset_memories(void);
+void harvest_harvest(void);
+void harvesting(void);
 POSITION sandwarm_position(int);
+POSITION harvest_position(int);
 
 /* ================= control =================== */
 int sys_clock = 0;  	// system-wide clock(ms)
 int click_start_timer = 0; //타이머 시작하여 시간을 잼
 int double_click = 90;  //90이내의 반복 클릭시 대쉬하도록 하기 위함
-int spice_time = 15000;  //샌드웜의 첫 스파이스 배출 시간 ( 이후에는 생성주기가 100000임)
+int spice_time = 15000;  //샌드웜의 첫 스파이스 배출 시간
 int order_on = 1;  //명령스위치 [ 0 : 본진명령 / 1 : 건설 명령 (이때 B를 누를 수 있음) / 2 : 건설 메뉴 (이때 P,G,D,B,S 선택가능
-								//3 : plate 설치 가능 / 4 : dormitory 설치 가능 ]
+								//3 : plate 설치 가능 / 4 : dormitory 설치 가능 / 5 : garage 설치 가능 / 6 : barracks / 7: shelter / 8 : arena / 9 : factory / 10 : 하베스트 이동명령 ]
+int move_on = 0;	// 0 : 비활성화 1 : 이동 2 : 수확
+int m_harvest = 0;	// 움직일 하베스터를 지목할때
+int h_harvest = 0;  // 수확할 하베스터 지목할때
 int change_cursor = -1; //커서 변경 변수 [ 0 : 커서 4칸 변경 ]
 int B_cnt = 0; //B키를 두번 입력할 시 barracks 건설
 int buildings_cnt_AT = 0;
@@ -92,8 +99,13 @@ char text_situ[30][50] = {
 	"프레멘을 생산할 수 있는 은신처이다.", //text[19] 은신처
 	"생산비용 : 5", //text[20] 은신처
 	"체력 : ", //text[21] 하베스터 체력
+	"장판 건설 비용 : 1",  //text[22] 장판 건설 비용
+	"숙소 건설 비용 : 2",  //text[23] 숙소 건설 비용
+	"창고 건설 비용 : 4",  //text[24] 창고 건설 비용
+	"병영 건설 비용 : 4",  //text[25] 병영 건설 비용
+	"은신처 건설 비용 : 5",  //text[26] 은신처 건설 비용
 };
-char text_order[10][50] = {
+char text_order[20][50] = {
 	"H : 하베스터 생산", //text[0] 본진 명령어
 	"H : 수확하기",		//text[1] 농부 명령어
 	"M : 움직이기",		//text[2] 
@@ -104,9 +116,13 @@ char text_order[10][50] = {
 	"B : 병영 건설",	//text[7] 건설 명령어
 	"S : 은신처 건설",	//text[8] 건설 명령어
 	"Space : 건설하기",	//text[9] 건설 명령어
+	"Space : 커서 이동 후 클릭",	//text[10] 이동 명령어
+	"Space : 스파이스 매장지를 정해주세요", //text[11] 수확 명령
+	"B : 보병 생산", //text[12] 보병 생산 명령
+	"S : 특수유닛 생산", //text[12] 특수유닛 생산 명령
 };
-char text_system[10][50] = {
-	"하베스트가 생성되었습니다.", //text[0] 하베스트 생성
+char text_system[30][50] = {
+	"하베스트 생성!", //text[0] 하베스트 생성
 	"스파이스가 부족합니다.", //text[1] 스파이스 부족
 	"더이상 생성할 수 없습니다.", //text[2] 하베스트 자리 부족
 	"샌드웜이 하베스트를 먹었습니다!", //text[3] 하베스트 먹힘
@@ -115,6 +131,12 @@ char text_system[10][50] = {
 	"이 곳에는 건설할 수 없습니다.",	  //text[6] 위치 설치 안될때
 	"건설이 완료되었습니다.",			  //text[7] 위치 설치 될때
 	"인구가 너무 많습니다.",			//text[8] 인구수가 많을 때
+	"수확 중......",			//text[9] 하베스트 수확 중
+	"하베스트가 수확을 끝냈습니다!",			//text[10] 하베스트 복귀
+	"하베스트가 출발합니다.",			//text[11] 하베스트 출발
+	"하베스트가 이동했습니다.",			//text[12] 하베스트 이동
+	"잘못된 목적지입니다.",			//text[13] 하베스트 목적지 이상
+	"! 스파이스 저장 용량 부족 !",			//text[14] 스파이스 저장량이 초과할때
 
 };
 char system_view[7][58] = { 0 };
@@ -128,7 +150,7 @@ RESOURCE resource = {  //초기 하베스트는 최대 4로 지정함
 	.spice = 20,
 	.spice_max = 20,
 	.population = 5,
-	.population_max = 20
+	.population_max = 20  //4*5 = 20
 };
 
 OBJECT_SAMPLE sandW[2] = {  //샌드웜 2마리
@@ -136,15 +158,15 @@ OBJECT_SAMPLE sandW[2] = {  //샌드웜 2마리
 	.pos = {3, 10},
 	.dest = {0, 0},
 	.repr = 'W',
-	.speed = 1500,
-	.next_move_time = 1500
+	.speed = 3000,
+	.next_move_time = 3000
 	},
 	{
 	.pos = {13, 50},
 	.dest = {0,0},
 	.repr = 'W',
-	.speed = 1500,
-	.next_move_time = 1500
+	.speed = 3000,
+	.next_move_time = 3000
 	}
 };
 
@@ -191,7 +213,15 @@ int main(void) {
 			case k_quit: outro();
 			case k_none: break;
 			case k_undef:break;
-			case k_space: 
+			case k_space:
+				if (move_on == 1) {
+					clean_order(cursor);
+					move_harvest();
+				}
+				if (move_on == 2) {
+					clean_order(cursor);
+					harvest_harvest();
+				}
 				making_plate();
 				making_buildings_AT(order_on);
 				making_buildings_HC(order_on);
@@ -206,43 +236,55 @@ int main(void) {
 				remove_4cursor(cursor);
 				clean_order(cursor);
 				clean_situation(cursor);
-				B_cnt = 0;
+				reset_memories();
 				break;
 			case k_H:
 				base_order();
+				if (order_on == -1)
+					clean_order(cursor);
+				if(move_on == 0)
+					harvest_harvest();
 				break;
 			case k_B:
 				B_cnt++;
+				clean_situation(cursor);
 				build_order();
+				view_situation(cursor);
 				if (B_cnt == 2) {
 					if (order_on == 2) clean_order(cursor);
 					barracks_order();
-					B_cnt = 0;
+					reset_memories();
 				}
 				break;
 			case k_P:
 				if(order_on==2)
 					clean_order(cursor);
 				plate_order();
-				B_cnt=0;
+				reset_memories();
 				break;
 			case k_D:
 				if(order_on==2)
 					clean_order(cursor);
 				dormitory_order();
-				B_cnt = 0;
+				reset_memories();
 				break;
 			case k_G:
 				if (order_on == 2)
 					clean_order(cursor);
 				garage_order();
-				B_cnt = 0;
+				reset_memories();
 				break;
 			case k_S:
 				if (order_on == 2)
 					clean_order(cursor);
 				shelter_order();
-				B_cnt = 0;
+				reset_memories();
+				break;
+			case k_M:
+				if (order_on == -1)
+					clean_order(cursor);
+				if (move_on == 0)
+					move_harvest();
 				break;
 			default: break;
 			}
@@ -250,6 +292,7 @@ int main(void) {
 		// 샘플 오브젝트 동작
 		dest_sandwarm();
 		sample_obj_move();
+		harvesting();
 		spice_making();
 		// 화면 출력
 		add_struct_map(); //구조체 내용을 map에 반영
@@ -342,10 +385,11 @@ void map_making(void) {
 	//하베스터
 	units_AT[units_cnt_AT].onoff = 1;
 	units_AT[units_cnt_AT].pos = (POSITION){ 14,1};
+	units_AT[units_cnt_AT].home = (POSITION){ 14,1 };
 	units_AT[units_cnt_AT].dest = (POSITION){ 14,1 };
 	units_AT[units_cnt_AT].cost = 5;
 	units_AT[units_cnt_AT].population = 5;
-	units_AT[units_cnt_AT].next_move_time = 1000;
+	units_AT[units_cnt_AT].next_move_time = 0;
 	units_AT[units_cnt_AT].hp = 70;
 	units_AT[units_cnt_AT].outlook = 0;
 	units_AT[units_cnt_AT].ch = 'H';
@@ -353,16 +397,17 @@ void map_making(void) {
 
 	units_HC[units_cnt_HC].onoff = 1;
 	units_HC[units_cnt_HC].pos = (POSITION){ 3,58};
+	units_HC[units_cnt_HC].home = (POSITION){ 3,58 };
 	units_HC[units_cnt_HC].dest = (POSITION){ 3,58 };
 	units_HC[units_cnt_HC].cost = 5;
 	units_HC[units_cnt_HC].population = 5;
-	units_HC[units_cnt_HC].next_move_time = 1000;
+	units_HC[units_cnt_HC].next_move_time = 0;
 	units_HC[units_cnt_HC].hp = 70;
 	units_HC[units_cnt_HC].outlook = 0;
 	units_HC[units_cnt_HC].ch = 'H';
 	units_cnt_HC++;
 
-	//샌드웜 
+	//샌드웜
 	map[1][sandW[0].pos.row][sandW[0].pos.column] = 'W';
 	map[1][sandW[1].pos.row][sandW[1].pos.column] = 'W';
 }
@@ -470,7 +515,7 @@ void cursor_move(DIRECTION dir) {
 }
 
 void clean_situation(CURSOR cursor) {
-	for (int i = 5; i < 9; i++) {
+	for (int i = 4; i < 14; i++) {
 		for (int j = 0; j < BOX_WIDTH; j++) {
 			if (j != 0 && j != BOX_WIDTH - 1) {
 				POSITION pos = { i, j };
@@ -507,6 +552,18 @@ void view_situation(CURSOR cursor) {
 	POSITION pos = { 6, 5 };
 	gotoxy(padd(situation_pos, pos));
 	set_color(COLOR_DEFAULT);
+	if (order_on == 2) {
+		int i = 0;
+		int j = 0;
+		while (i < 7) {
+			POSITION pos = { 4 + j, 5 };
+			gotoxy(padd(situation_pos, pos));
+			printf("%s", text_situ[22 + i]);
+			i++;
+			j +=2;
+		}
+		return;
+	}
 	if (map[0][x][y] == 'B') {
 		if((y == 1 || y == 2)&&(x ==15 || x ==16))
 			printf("%s", text_situ[0]);
@@ -526,7 +583,7 @@ void view_situation(CURSOR cursor) {
 	else if (map[1][x][y] == 'H') {
 		printf("%s", text_situ[10]);
 		if (y < 8) {
-			int hp;
+			int hp=0;
 			for (int i = 0; i < units_cnt_AT; i++) {
 				if (x == units_AT[i].pos.row && y == units_AT[i].pos.column)
 					hp = units_AT[i].hp;
@@ -582,7 +639,7 @@ void view_situation(CURSOR cursor) {
 }
 
 void view_order(CURSOR cursor) {
-	order_on = -1;
+	order_on = 1;
 	change_cursor = -1;
 	int x = cursor.current.row;
 	int y = cursor.current.column;
@@ -594,7 +651,7 @@ void view_order(CURSOR cursor) {
 		printf("%s", text_order[0]);
 		order_on = 0;
 	}
-	else if (map[1][x][y] == 'H' && (y == 1 || y == 2)) {
+	else if (map[1][x][y] == 'H' && y < 25) {
 		printf("%s\t\t%s", text_order[1], text_order[2]);
 		order_on = -1;
 	}
@@ -627,7 +684,7 @@ POSITION sandwarm_position(int i) {
 	POSITION dest = { sandW[i].dest.row, sandW[i].dest.column};
 	if (dest.row == 0 && dest.column == 0) {
 		//유닛이 없을 때 샌드웜의 움직임
-		int dir = (rand() % 4) + 1; 
+		int dir = (rand() % 3) + 1; 
 		POSITION next_pos = pmove(curr, dir); 
 		if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
 			1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
@@ -660,38 +717,37 @@ POSITION sandwarm_position(int i) {
 
 void sample_obj_move(void) {
 	for (int i = 0; i < 2; i++) {
-		if (sys_clock <= sandW[i].next_move_time) {
-			// 아직 시간이 안 됐음
-			return;
-		}
+		//움직일 시간이면 움직이기 아니면 넘기기
+		if (sys_clock >= sandW[i].next_move_time) {
 		// 오브젝트(건물, 유닛 등)은 layer1(map[1])에 저장
-		map[1][sandW[i].pos.row][sandW[i].pos.column] = -1;
-		sandW[i].pos = sandwarm_position(i);
-		if (map[1][sandW[i].pos.row][sandW[i].pos.column] == 'H') {
-			strcpy_s(system_view[0], 58, system_view[1]);
-			strcpy_s(system_view[1], 58, system_view[2]);
-			strcpy_s(system_view[2], 58, system_view[3]);
-			strcpy_s(system_view[3], 58, system_view[4]);
-			strcpy_s(system_view[4], 58, system_view[5]);
-			strcpy_s(system_view[5], 58, system_view[6]);
-			for (int j = 0; j < units_cnt_AT; j++) {
-				if (sandW[i].pos.row == units_AT[j].pos.row && sandW[i].pos.column == units_AT[j].pos.column) {
-					units_AT[j].onoff = 0;
-					resource.population -= 5;
-					snprintf(system_view[6], 58, text_system[3]);
+			map[1][sandW[i].pos.row][sandW[i].pos.column] = -1;
+			sandW[i].pos = sandwarm_position(i);
+			if (map[1][sandW[i].pos.row][sandW[i].pos.column] == 'H') {
+				strcpy_s(system_view[0], 58, system_view[1]);
+				strcpy_s(system_view[1], 58, system_view[2]);
+				strcpy_s(system_view[2], 58, system_view[3]);
+				strcpy_s(system_view[3], 58, system_view[4]);
+				strcpy_s(system_view[4], 58, system_view[5]);
+				strcpy_s(system_view[5], 58, system_view[6]);
+				for (int j = 0; j < units_cnt_AT; j++) {
+					if (sandW[i].pos.row == units_AT[j].pos.row && sandW[i].pos.column == units_AT[j].pos.column) {
+						units_AT[j].onoff = 0;
+						resource.population -= 5;
+						snprintf(system_view[6], 58, text_system[3]);
+					}
 				}
-			}
-			for (int j = 0; j < units_cnt_HC; j++) {
-				if (sandW[i].pos.row == units_HC[j].pos.row && sandW[i].pos.column == units_HC[j].pos.column) {
-					units_HC[j].onoff = 0;
-					snprintf(system_view[6], 58, text_system[5]);
+				for (int j = 0; j < units_cnt_HC; j++) {
+					if (sandW[i].pos.row == units_HC[j].pos.row && sandW[i].pos.column == units_HC[j].pos.column) {
+						units_HC[j].onoff = 0;
+						snprintf(system_view[6], 58, text_system[5]);
+					}
 				}
+				view_system(cursor);
 			}
-			view_system(cursor);
-		}
-		map[1][sandW[i].pos.row][sandW[i].pos.column] = sandW[i].repr;
+			map[1][sandW[i].pos.row][sandW[i].pos.column] = sandW[i].repr;
 
-		sandW[i].next_move_time = sys_clock + sandW[i].speed;
+			sandW[i].next_move_time = sys_clock + sandW[i].speed;
+		}
 	}
 }
 
@@ -743,7 +799,7 @@ void spice_making(void) {
 		set_color(COLOR_SPICE);
 		map[0][sandW[i].pos.row][sandW[i].pos.column] = ch;
 	}
-	spice_time = sys_clock + 100000;
+	spice_time = sys_clock + 50000;
 	strcpy_s(system_view[0], 58, system_view[1]);
 	strcpy_s(system_view[1], 58, system_view[2]);
 	strcpy_s(system_view[2], 58, system_view[3]);
@@ -1036,28 +1092,248 @@ void making_buildings_HC(int order) {
 }
 
 void making_harvest(int x, int y) {
-	/*
-	bool onoff;     //활성/비활성
-	POSITION pos;	//위치
-	POSITION dest;	//목적지
-	int cost;		//비용
-	int unit_max;	//최대 유닛 수
-	int next_move_time;	//이동 주기
-	int power;		//공격력
-	int next_hit_time; //공격주기
-	int hp;			//체력
-	int outlook;    //시야
-	*/
 	units_AT[units_cnt_AT].onoff = 1;
 	units_AT[units_cnt_AT].pos = (POSITION){ x,y };
+	units_AT[units_cnt_AT].home = (POSITION){ x,y };
 	units_AT[units_cnt_AT].dest = (POSITION){ x,y };
 	units_AT[units_cnt_AT].cost = 5;
 	units_AT[units_cnt_AT].population = 5;
-	units_AT[units_cnt_AT].next_move_time = 1000;
+	units_AT[units_cnt_AT].next_move_time = 0;
 	units_AT[units_cnt_AT].hp = 70;
 	units_AT[units_cnt_AT].outlook = 0;
+	units_AT[units_cnt_AT].get = 0;
 	units_AT[units_cnt_AT].ch = 'H';
 	resource.spice -= units_AT[units_cnt_AT].cost;
 	resource.population += units_AT[units_cnt_AT].population;
 	units_cnt_AT++;
+}
+
+void move_harvest(void) {
+	int x = cursor.current.row;
+	int y = cursor.current.column;
+	if (map[1][x][y] == 'H' && order_on == -1) {
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[10]);
+		for (int i = 0; i < units_cnt_AT; i++) {
+			if (units_AT[i].onoff == 1) {
+				POSITION hpos = units_AT[i].pos;
+				if (y == hpos.column && x == hpos.row)
+					m_harvest = i;
+			}
+		}
+		move_on = 1;
+	}
+	else if (order_on == -1 && move_on == 1) {
+		POSITION curr = cursor.current;
+		POSITION next_pos = { curr.row, curr.column };
+		if ((abs(units_AT[m_harvest].pos.row - next_pos.row) == 1 || abs(units_AT[m_harvest].pos.column - next_pos.column) == 1)&& map[0][next_pos.row][next_pos.column] == ' ') {
+			map[1][units_AT[m_harvest].pos.row][units_AT[m_harvest].pos.column] =' ';
+			units_AT[m_harvest].pos.row = next_pos.row;
+			units_AT[m_harvest].pos.column = next_pos.column;
+			strcpy_s(system_view[0], 58, system_view[1]);
+			strcpy_s(system_view[1], 58, system_view[2]);
+			strcpy_s(system_view[2], 58, system_view[3]);
+			strcpy_s(system_view[3], 58, system_view[4]);
+			strcpy_s(system_view[4], 58, system_view[5]);
+			strcpy_s(system_view[5], 58, system_view[6]);
+			snprintf(system_view[6], 58, text_system[12]);
+			view_system(cursor);
+		}
+		move_on = 0;
+		order_on = 1;
+	}
+}
+
+void reset_memories(void) {
+	B_cnt = 0;
+	move_on = 0;
+}
+
+void harvest_harvest(void) {
+	int x = cursor.current.row;
+	int y = cursor.current.column;
+	if (map[1][x][y] == 'H' && order_on == -1) {
+		POSITION pos = { 4, 4 };
+		gotoxy(padd(order_pos, pos));
+		set_color(COLOR_DEFAULT);
+		printf("%s", text_order[11]);
+		move_on = 2;
+		for (int i = 0; i < units_cnt_AT; i++) {
+			if (units_AT[i].onoff == 1) {
+				POSITION hpos = units_AT[i].pos;
+				if (y == hpos.column && x == hpos.row)
+					h_harvest = i;
+			}
+		}
+	}
+	else if (move_on == 2 && order_on == -1) {
+		POSITION curr = cursor.current;
+		POSITION next_pos = { curr.row, curr.column };
+		if (('1' <= map[0][next_pos.row][next_pos.column] && map[0][next_pos.row][next_pos.column] <= '9' )&& map[0][next_pos.row][next_pos.column] != ' ') {
+			units_AT[h_harvest].dest.row = next_pos.row;
+			units_AT[h_harvest].dest.column = next_pos.column;
+			units_AT[h_harvest].next_move_time = 2000;
+			strcpy_s(system_view[0], 58, system_view[1]);
+			strcpy_s(system_view[1], 58, system_view[2]);
+			strcpy_s(system_view[2], 58, system_view[3]);
+			strcpy_s(system_view[3], 58, system_view[4]);
+			strcpy_s(system_view[4], 58, system_view[5]);
+			strcpy_s(system_view[5], 58, system_view[6]);
+			snprintf(system_view[6], 58, text_system[11]);
+			view_system(cursor);
+			move_on = 0;
+		}
+		else {
+			strcpy_s(system_view[0], 58, system_view[1]);
+			strcpy_s(system_view[1], 58, system_view[2]);
+			strcpy_s(system_view[2], 58, system_view[3]);
+			strcpy_s(system_view[3], 58, system_view[4]);
+			strcpy_s(system_view[4], 58, system_view[5]);
+			strcpy_s(system_view[5], 58, system_view[6]);
+			snprintf(system_view[6], 58, text_system[13]);
+			view_system(cursor);
+			move_on = 0;
+		}
+	}
+}
+
+POSITION harvest_position(int i) {
+	POSITION curr = { units_AT[i].pos.row, units_AT[i].pos.column };
+	POSITION dest = { units_AT[i].dest.row, units_AT[i].dest.column };
+	POSITION home = { units_AT[i].home.row, units_AT[i].home.column };
+	POSITION diff = psub(dest, curr);
+
+	//유닛 수확 종료 조건
+	if ((units_AT[i].home.row == units_AT[i].dest.row && units_AT[i].home.column == units_AT[i].dest.column) && curr.row == home.row && curr.column == home.column) {
+		units_AT[i].next_move_time = 0;
+		return units_AT[i].pos;
+	}
+
+	//유닛이 수확하기 전
+	if (units_AT[i].get == 0) {
+		diff = psub(dest, curr);
+		//목적지에 도착했을 때
+		if (curr.row == dest.row && curr.column == dest.column) {
+			if (map[0][dest.row][dest.column] != ' ') {
+				int ch = map[0][dest.row][dest.column] - '0';
+				int get_spice = (rand() % 3) + 2;
+				if (get_spice > ch)
+					get_spice = ch;
+				units_AT[i].get = get_spice;
+				ch -= get_spice;
+				if (ch >= 1)
+					map[0][dest.row][dest.column] = ch + '0';
+				else
+					map[0][dest.row][dest.column] = ' ';
+			}
+			else {
+				units_AT[i].get = 0;
+			}
+			diff = psub(home, curr);
+		}
+	}
+	//유닛이 수확한 후
+	else if (units_AT[i].get != 0) {
+		if (map[1][home.row][home.column] == 'H' && (home.row == 14 && home.column == 1)) {
+			home = (POSITION){ units_AT[i].home.row, units_AT[i].home.column + 1 };
+			units_AT[i].home.row = home.row;
+			units_AT[i].home.column = home.column;
+		}
+		diff = psub(home, curr);
+	}
+
+	//수확할 스파이스가 x
+	if (map[0][dest.row][dest.column] == ' ') {
+		units_AT[i].dest.row = home.row;
+		units_AT[i].dest.column = home.column;
+		units_AT[i].home.row = home.row;
+		units_AT[i].home.column = home.column;
+	}
+
+
+	DIRECTION dir;
+	if (abs(diff.row) >= abs(diff.column)) {
+		dir = (diff.row >= 0) ? d_down : d_up;
+	}
+	else {
+		dir = (diff.column >= 0) ? d_right : d_left;
+	}
+	POSITION next_pos = pmove(curr, dir);
+	//집에 도착
+	if (next_pos.row == home.row && next_pos.column == home.column) {
+		if (resource.spice + units_AT[i].get <= resource.spice_max) {
+			resource.spice += units_AT[i].get;
+			units_AT[i].get = 0;
+		}
+		else {
+			resource.spice = resource.spice_max;
+			units_AT[i].get = 0;
+			strcpy_s(system_view[0], 58, system_view[1]);
+			strcpy_s(system_view[1], 58, system_view[2]);
+			strcpy_s(system_view[2], 58, system_view[3]);
+			strcpy_s(system_view[3], 58, system_view[4]);
+			strcpy_s(system_view[4], 58, system_view[5]);
+			strcpy_s(system_view[5], 58, system_view[6]);
+			snprintf(system_view[6], 58, text_system[14]);
+			view_system(cursor);
+		}
+		if (map[0][dest.row][dest.column] == ' ') {
+			strcpy_s(system_view[0], 58, system_view[1]);
+			strcpy_s(system_view[1], 58, system_view[2]);
+			strcpy_s(system_view[2], 58, system_view[3]);
+			strcpy_s(system_view[3], 58, system_view[4]);
+			strcpy_s(system_view[4], 58, system_view[5]);
+			strcpy_s(system_view[5], 58, system_view[6]);
+			snprintf(system_view[6], 58, text_system[10]);
+			view_system(cursor);
+		}
+	}
+
+	if ((units_AT[i].get ==0 && ('1' <= map[0][next_pos.row][next_pos.column] && map[0][next_pos.row][next_pos.column] <= '9'))&& map[1][next_pos.row][next_pos.column]== -1) return next_pos;
+	else if (map[1][next_pos.row][next_pos.column] != -1) {
+		if (dir == d_right || dir == d_left) dir = (diff.row >= 0) ? d_down : d_up;
+		else dir = (diff.column >= 0) ? d_right : d_left;
+		next_pos = pmove(curr, dir);
+		return next_pos;
+	}
+	else if (map[0][next_pos.row][next_pos.column] != ' ') {
+		if (dir == d_right || dir == d_left) dir = (diff.row >= 0) ? d_down : d_up;
+		else dir = (diff.column >= 0) ? d_right : d_left;
+		next_pos = pmove(curr, dir);
+		return next_pos;
+	}
+	else if (1 <= next_pos.row && next_pos.row <= MAP_HEIGHT - 2 && \
+		1 <= next_pos.column && next_pos.column <= MAP_WIDTH - 2 && \
+		map[0][next_pos.row][next_pos.column] == ' ' && \
+		map[1][next_pos.row][next_pos.column] == -1) {
+		return next_pos;
+	}
+	else return units_AT[i].pos;  // 제자리
+}
+
+void harvesting(void) {
+	for (int i = 0; i < 100; i++) {
+		if (sys_clock >= units_AT[i].next_move_time && units_AT[i].next_move_time != 0) {
+			if (units_AT[i].onoff == 1) {
+				map[1][units_AT[i].pos.row][units_AT[i].pos.column] = -1;
+				units_AT[i].pos = harvest_position(i);
+				map[1][units_AT[i].pos.row][units_AT[i].pos.column] = units_AT[i].ch;
+				if (map[0][units_AT[i].pos.row][units_AT[i].pos.column] != ' ') {
+					strcpy_s(system_view[0], 58, system_view[1]);
+					strcpy_s(system_view[1], 58, system_view[2]);
+					strcpy_s(system_view[2], 58, system_view[3]);
+					strcpy_s(system_view[3], 58, system_view[4]);
+					strcpy_s(system_view[4], 58, system_view[5]);
+					strcpy_s(system_view[5], 58, system_view[6]);
+					snprintf(system_view[6], 58, text_system[9]);
+					view_system(cursor);
+					units_AT[i].next_move_time = sys_clock + 3000;
+				}
+				else
+					units_AT[i].next_move_time = sys_clock + 500;
+			}
+		}
+	}
 }
