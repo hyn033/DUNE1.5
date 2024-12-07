@@ -45,6 +45,7 @@ typedef enum {
 	k_P,  //PŰ
 	k_S,  //SŰ
 	k_M,  //MŰ
+	k_F,  //FŰ
 } KEY;
 
 
